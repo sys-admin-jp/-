@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>展示会レポート</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="展示会レポート">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0e6a8c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --stage: #1d2127;
+    --chrome: #f2f3f5;
+    --line: #d3d7dd;
+    --ink: #1b2430;
+    --sub: #5b6573;
+    --accent: #0e6a8c;
+    --danger: #b3261e;
+    --ok: #1c7a3d;
+    --tf: 'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: var(--tf); color: var(--ink); background: var(--chrome); -webkit-text-size-adjust: 100%; }
+  button {
+    font: inherit; color: inherit; background: #fff;
+    border: 1px solid var(--line); border-radius: 10px;
+    min-height: 44px; padding: 0 14px; cursor: pointer; touch-action: manipulation;
+  }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  button.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  button.danger { color: var(--danger); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #7cc4e4; outline-offset: 1px; }
+  input[type=text], input[type=date], input[type=url], input[type=password], textarea {
+    font: inherit; font-size: 16px; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    min-height: 44px; padding: 0 12px;
+    -webkit-user-select: text; user-select: text;
+  }
+  .sub { color: var(--sub); font-size: 14px; }
+
+  /* ---------- 一覧 ---------- */
+  #list { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  .list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .list-head h1 { margin: 0; font-size: 26px; }
+  .list-head .btns { display: flex; gap: 8px; }
+  #reportList { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
+  .rep { display: flex; gap: 8px; align-items: stretch; }
+  .rep .open { flex: 1; text-align: left; padding: 12px 16px; min-height: 64px; }
+  .rep .open b { display: block; font-size: 18px; }
+  .rep .open span { color: var(--sub); font-size: 14px; }
+  .badge { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #e6e9ee; color: var(--sub); }
+  .badge.queued { background: #fff1d6; color: #8a5a00; }
+  .badge.sent { background: #dff3e6; color: var(--ok); }
+  .errline { display: block; color: var(--danger); font-size: 13px; margin-top: 2px; }
+  .hint { background: #e8f3f8; border: 1px solid #b9dbe9; border-radius: 12px; padding: 12px 14px; margin: 12px 0; font-size: 14px; line-height: 1.6; display: flex; gap: 12px; align-items: flex-start; }
+  .hint button { min-height: 36px; flex: none; }
+
+  /* ---------- 編集 ---------- */
+  #editor { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  .topbar, .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; }
+  .topbar { border-bottom: 1px solid var(--line); background: #fff; }
+  .tools { background: var(--chrome); border-bottom: 1px solid var(--line); }
+  #inTitle { flex: 1 1 200px; min-width: 160px; font-weight: 700; font-size: 18px; }
+  #saveState { min-width: 9em; }
+  .group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+  .chip { min-width: 44px; padding: 0 10px; }
+  .chip.on { background: var(--accent); border-color: var(--accent); }
+  .sw { width: 44px; padding: 0; position: relative; }
+  .sw i { position: absolute; inset: 9px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); }
+  .sw[aria-pressed=true] { border: 3px solid var(--ink); }
+  .slider { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--sub); }
+  .slider input { width: 120px; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 14px; min-height: 44px; }
+  .chk input { width: 22px; height: 22px; }
+
+  #stage {
+    flex: 1; min-height: 0; background: var(--stage);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
+    padding-bottom: env(safe-area-inset-bottom);
+    /* 長押しで写真が青く「選択」されたり、メニューが出たりしないようにする（iPad対策） */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
+  #wrap { position: relative; background: #000; box-shadow: 0 6px 24px rgba(0,0,0,.5);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #wrap canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #stage ::selection { background: transparent; }
+  #live { touch-action: none; }
+  #textLayer { position: absolute; inset: 0; pointer-events: none; }
+  #empty { color: #c9d0da; text-align: center; padding: 24px; line-height: 1.7; }
+  #empty button { margin-top: 12px; }
+
+  /* テキスト枠 */
+  .tbox { position: absolute; pointer-events: none; }
+  #wrap.text-mode .tbox { pointer-events: auto; }
+  .tbox textarea {
+    display: block; width: 100%; margin: 0; padding: .25em; min-height: 0;
+    border: 0; border-radius: 0; background: transparent; color: inherit;
+    resize: none; overflow: hidden; outline: none;
+    -webkit-user-select: text; user-select: text;
+    font-family: var(--tf); font-size: inherit; line-height: 1.3;
+    white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; line-break: anywhere;
+  }
+  .tbox.bg textarea { background: rgba(255,255,255,.82); }
+  .tbox.sel textarea { outline: 2px dashed #38bdf8; }
+  .tbox .hd { display: none; position: absolute; touch-action: none; user-select: none; -webkit-user-select: none;
+    font-size: 13px; font-weight: 700; align-items: center; justify-content: center; border-radius: 8px; }
+  .tbox.sel .hd { display: flex; }
+  .tbox .grip { left: 0; top: -40px; width: 64px; height: 36px; background: var(--accent); color: #fff; }
+  .tbox .del { right: 0; top: -40px; width: 64px; height: 36px; background: #fff; color: var(--danger); border: 1px solid var(--line); }
+  .tbox .rs { right: -16px; bottom: -16px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); }
+  .tbox.below .grip, .tbox.below .del { top: calc(100% + 6px); }
+
+  /* モーダル・通知 */
+  .overlay { position: fixed; inset: 0; background: rgba(15,20,28,.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .modal { background: #fff; border-radius: 14px; padding: 18px; width: min(640px, 100%); display: grid; gap: 12px; max-height: 92vh; overflow: auto; }
+  .modal textarea { min-height: 220px; padding: 10px 12px; line-height: 1.5; }
+  .modal .row { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .modal label { display: grid; gap: 4px; font-size: 14px; color: var(--sub); }
+  .modal .col { display: grid; gap: 8px; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff;
+    padding: 12px 20px; border-radius: 12px; font-size: 16px; max-width: 90vw; z-index: 70; opacity: 0; pointer-events: none; transition: opacity .2s; text-align: center; }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--danger); }
+  #busy { color: #fff; font-size: 20px; font-weight: 700; }
+  #netPill { position: fixed; left: 12px; bottom: 12px; z-index: 40; background: #fff1d6; color: #8a5a00; border: 1px solid #f0d49a;
+    border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<section id="list">
+  <div class="list-head">
+    <h1>展示会レポート</h1>
+    <div class="btns">
+      <button id="btnSettings">送信設定</button>
+      <button class="primary" id="btnNew">新規作成</button>
+    </div>
+  </div>
+  <div class="hint" id="installHint" hidden>
+    <div>圏外でも使うには、Safariの共有ボタンから<b>「ホーム画面に追加」</b>をして、ホーム画面のアイコンから開いてください。<br>写真や下書きはこのiPadの中に保存されます。</div>
+    <button id="btnHintClose">閉じる</button>
+  </div>
+  <p class="sub" id="listMsg"></p>
+  <ul id="reportList"></ul>
+</section>
+
+<section id="editor" hidden>
+  <div class="topbar">
+    <button id="btnBack">一覧へ</button>
+    <input type="text" id="inTitle" placeholder="展示会名・タイトル" aria-label="タイトル">
+    <input type="date" id="inDate" aria-label="日付">
+    <button id="btnMemo">全体メモ</button>
+    <span class="sub" id="saveState"></span>
+    <button class="primary" id="btnPdf">PDFを作成</button>
+  </div>
+  <div class="tools">
+    <div class="group" id="pageStrip"></div>
+    <button id="btnAdd">写真を追加</button>
+    <button id="btnDelPage" class="danger">このページを削除</button>
+    <span class="sep"></span>
+    <div class="group" id="toolBtns">
+      <button data-tool="pen">ペン</button>
+      <button data-tool="marker">マーカー</button>
+      <button data-tool="eraser">消しゴム</button>
+      <button data-tool="text">テキスト</button>
+    </div>
+    <div class="group" id="swatches"></div>
+    <label class="slider"><span id="sizeLabel">太さ</span><input type="range" id="size"></label>
+    <button id="btnBg" hidden>文字の背景</button>
+    <span class="sep"></span>
+    <button id="btnUndo">元に戻す</button>
+    <button id="btnRedo">やり直し</button>
+    <label class="chk"><input type="checkbox" id="chkFinger">指でも描く</label>
+  </div>
+  <main id="stage">
+    <div id="wrap" hidden>
+      <canvas id="base"></canvas>
+      <canvas id="live"></canvas>
+      <div id="textLayer"></div>
+    </div>
+    <div id="empty">
+      <div>展示会で撮った写真を選ぶと、Apple Pencil で直接書き込めます。</div>
+      <button class="primary" id="btnAdd2">写真を追加</button>
+    </div>
+  </main>
+</section>
+
+<div class="overlay" id="memoModal" hidden>
+  <div class="modal" role="dialog" aria-label="全体メモ">
+    <b>全体メモ（展示会全体の所感など）</b>
+    <textarea id="memoText"></textarea>
+    <div class="row"><button class="primary" id="btnMemoClose">閉じる</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="pdfModal" hidden>
+  <div class="modal" role="dialog" aria-label="PDF">
+    <b>PDFができました</b>
+    <div class="sub" id="pdfInfo"></div>
+    <div class="col">
+      <button class="primary" id="btnUpload">ドライブへ送信</button>
+      <button id="btnShare">共有・保存（Chatworkアプリなどへ）</button>
+    </div>
+    <div class="sub" id="uploadNote"></div>
+    <div class="row"><button id="btnPdfClose">閉じる</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="cfgModal" hidden>
+  <div class="modal" role="dialog" aria-label="送信設定">
+    <b>ドライブへの送信設定</b>
+    <div class="sub">管理者から受け取った「送信先URL」と「合言葉」を入力します。この端末の中にだけ保存されます。</div>
+    <label>送信先URL<input type="url" id="cfgUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <label>合言葉<input type="password" id="cfgToken" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <div class="sub" id="cfgResult"></div>
+    <div class="row">
+      <button id="btnCfgTest">接続テスト</button>
+      <button id="btnCfgClose">閉じる</button>
+      <button class="primary" id="btnCfgSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="busyBox" hidden><div id="busy">読み込み中…</div></div>
+<div id="toast" role="status"></div>
+<div id="netPill" hidden>オフライン（下書きは端末に保存されます）</div>
+<input type="file" id="fileInput" accept="image/*" multiple hidden>
+
+<script>
+(function () {
+  'use strict';
+  const $ = function (id) { return document.getElementById(id); };
+  const FONT = "'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif";
+  const MAX_SIDE = 2000;     // 写真の長辺（これ以上は縮小して保存）
+  // 送信先URLの初期値（空欄なら「送信設定」で入力する。URLだけでは送信できません）
+  const DEFAULT_GAS_URL = '';
+  const SWATCHES = [
+    ['#e5383b', '赤'], ['#1d4ed8', '青'], ['#111827', '黒'], ['#15803d', '緑'],
+    ['#f59e0b', '橙'], ['#facc15', '黄'], ['#ffffff', '白']
+  ];
+  const CFG = {
+    pen:    { min: 1,  max: 16, val: 4,  mul: 0.0012, label: '太さ' },
+    marker: { min: 4,  max: 30, val: 14, mul: 0.0016, label: '太さ' },
+    eraser: { min: 2,  max: 20, val: 8,  mul: 0.003,  label: '消す範囲' },
+    text:   { min: 10, max: 60, val: 28, mul: 0.001,  label: '文字の大きさ' }
+  };
+
+  const base = $('base'), live = $('live'), wrap = $('wrap'),
+        textLayer = $('textLayer'), stage = $('stage');
+  const S = {
+    reportId: null, title: '', date: '', memo: '', status: 'draft', sentAt: 0,
+    pages: [], cur: -1, needSave: false, lastPdf: null,
+    tool: 'pen', colors: { pen: '#e5383b', marker: '#facc15', text: '#111827' },
+    textBg: true, fingerDraw: false, selText: null, k: 1, drawing: null
+  };
+  const cur = function () { return S.pages[S.cur] || null; };
+  const uid = function () { return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4); };
+  const clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+  const pad2 = function (n) { return ('0' + n).slice(-2); };
+  const hhmm = function (t) { const d = new Date(t || Date.now()); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+
+  // ---------- 共通 ----------
+  let toastTimer = null;
+  function toast(msg, isErr) {
+    const t = $('toast');
+    t.textContent = msg; t.className = 'show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.className = ''; }, isErr ? 7000 : 2600);
+  }
+  function busy(msg) { $('busy').textContent = msg || ''; $('busyBox').hidden = !msg; }
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function loadImage(src) {
+    return new Promise(function (res, rej) {
+      const im = new Image();
+      im.onload = function () { res(im); };
+      im.onerror = function () { rej(new Error('画像を読み込めません')); };
+      im.src = src;
+    });
+  }
+  function toBlob(canvas, type, q) {
+    return new Promise(function (res, rej) {
+      canvas.toBlob(function (b) { b ? res(b) : rej(new Error('画像の変換に失敗しました')); }, type, q);
+    });
+  }
+  async function blobToImage(blob) {
+    const url = URL.createObjectURL(blob);
+    try { return await loadImage(url); } finally { URL.revokeObjectURL(url); }
+  }
+  function blobToBase64(blob) {
+    return new Promise(function (res, rej) {
+      const r = new FileReader();
+      r.onload = function () { const s = String(r.result); res(s.slice(s.indexOf(',') + 1)); };
+      r.onerror = function () { rej(r.error); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  // ---------- 端末内データベース（IndexedDB） ----------
+  let dbp = null;
+  function db() {
+    if (!dbp) {
+      dbp = new Promise(function (res, rej) {
+        const r = indexedDB.open('tenjikai-report', 1);
+        r.onupgradeneeded = function () {
+          const d = r.result;
+          d.createObjectStore('reports', { keyPath: 'id' });   // レポート本体（線・テキスト）
+          d.createObjectStore('photos');                        // 写真（キー: レポートID:ページID）
+          d.createObjectStore('outbox', { keyPath: 'id' });     // 送信待ちPDF（キー: レポートID）
+        };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+    }
+    return dbp;
+  }
+  function rq(r) { return new Promise(function (res, rej) { r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; }); }
+  function idb(store, mode, fn) {
+    return db().then(function (d) {
+      return new Promise(function (resolve, reject) {
+        const t = d.transaction(store, mode); let out;
+        Promise.resolve(fn(t.objectStore(store))).then(function (v) { out = v; }, reject);
+        t.oncomplete = function () { resolve(out); };
+        t.onerror = t.onabort = function () { reject(t.error); };
+      });
+    });
+  }
+  const DB = {
+    get: function (s, k) { return idb(s, 'readonly', function (o) { return rq(o.get(k)); }); },
+    all: function (s) { return idb(s, 'readonly', function (o) { return rq(o.getAll()); }); },
+    put: function (s, v, k) { return idb(s, 'readwrite', function (o) { return rq(k === undefined ? o.put(v) : o.put(v, k)); }); },
+    del: function (s, k) { return idb(s, 'readwrite', function (o) { return rq(o.delete(k)); }); },
+    // 指定レポートの写真のうち keep に無いものを削除
+    prunePhotos: function (rid, keep) {
+      return idb('photos', 'readwrite', function (o) {
+        return rq(o.getAllKeys(IDBKeyRange.bound(rid + ':', rid + ': '))).then(function (keys) {
+          return Promise.all(keys.filter(function (k) { return !keep[k]; }).map(function (k) { return rq(o.delete(k)); }));
+        });
+      });
+    }
+  };
+
+  // ---------- 自動保存（下書き） ----------
+  let saveTimer = null, saveChain = Promise.resolve();
+  function hasContent() { return S.pages.length > 0 || S.title.trim() !== '' || S.memo.trim() !== ''; }
+  function markDirty() {
+    S.lastPdf = null; S.needSave = true;
+    if (S.status !== 'draft') {
+      const was = S.status; S.status = 'draft';
+      if (was === 'queued') {
+        DB.del('outbox', S.reportId).catch(function () {});
+        toast('編集したので「送信待ち」を取り消しました。編集後にもう一度PDFを送信してください');
+      }
+    }
+    $('saveState').textContent = '編集中…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 1200);
+  }
+  function flushSave() {
+    clearTimeout(saveTimer);
+    saveChain = saveChain.then(doSave).catch(function (e) { toast('端末への保存に失敗しました：' + e.message, true); });
+    return saveChain;
+  }
+  async function doSave() {
+    if (!S.needSave || !S.reportId) return;
+    if (!hasContent()) { S.needSave = false; return; }
+    S.needSave = false;
+    const rid = S.reportId;
+    const doc = {
+      id: rid, title: S.title, date: S.date, memo: S.memo, status: S.status, sentAt: S.sentAt, updatedAt: Date.now(),
+      pages: S.pages.map(function (pg) {
+        return {
+          id: pg.id, w: pg.w, h: pg.h, strokes: pg.strokes,
+          texts: pg.texts.map(function (t) { return { id: t.id, x: t.x, y: t.y, w: t.w, fs: t.fs, c: t.c, bg: t.bg, text: t.text }; })
+        };
+      })
+    };
+    const keep = {};
+    for (const pg of S.pages) {
+      keep[rid + ':' + pg.id] = true;
+      if (pg.blob) { await DB.put('photos', pg.blob, rid + ':' + pg.id); pg.blob = null; }
+    }
+    await DB.put('reports', doc);
+    await DB.prunePhotos(rid, keep);
+    if (!S.needSave) $('saveState').textContent = '端末に保存済み ' + hhmm();
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) flushSave(); });
+  window.addEventListener('pagehide', function () { flushSave(); });
+
+  // ---------- 描画 ----------
+  function drawStroke(ctx, st, W) {
+    const pts = st.p, n = pts.length;
+    if (!n) return;
+    ctx.save();
+    ctx.strokeStyle = st.c; ctx.fillStyle = st.c;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const bw = st.s * W;
+    if (st.t === 'm') {
+      ctx.globalAlpha = 0.35; ctx.lineWidth = bw;
+      if (n === 1) {
+        ctx.beginPath(); ctx.arc(pts[0][0] * W, pts[0][1] * W, bw / 2, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.moveTo(pts[0][0] * W, pts[0][1] * W);
+        for (let i = 1; i < n - 1; i++) {
+          const mx = (pts[i][0] + pts[i + 1][0]) / 2 * W, my = (pts[i][1] + pts[i + 1][1]) / 2 * W;
+          ctx.quadraticCurveTo(pts[i][0] * W, pts[i][1] * W, mx, my);
+        }
+        ctx.lineTo(pts[n - 1][0] * W, pts[n - 1][1] * W);
+        ctx.stroke();
+      }
+    } else if (n === 1) {
+      ctx.beginPath(); ctx.arc(pts[0][0] * W, pts[0][1] * W, bw * (0.4 + 1.2 * pts[0][2]) / 2, 0, Math.PI * 2); ctx.fill();
+    } else {
+      let px = pts[0][0] * W, py = pts[0][1] * W;
+      for (let i = 1; i < n; i++) {
+        const cx = pts[i][0] * W, cy = pts[i][1] * W;
+        const nx = i < n - 1 ? (cx + pts[i + 1][0] * W) / 2 : cx;
+        const ny = i < n - 1 ? (cy + pts[i + 1][1] * W) / 2 : cy;
+        ctx.lineWidth = bw * (0.4 + 1.2 * pts[i][2]);
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.quadraticCurveTo(cx, cy, nx, ny); ctx.stroke();
+        px = nx; py = ny;
+      }
+    }
+    ctx.restore();
+  }
+  function wrapLines(ctx, text, maxW) {
+    const out = [];
+    text.split('\n').forEach(function (par) {
+      let line = '';
+      for (const ch of par) {
+        if (line && ctx.measureText(line + ch).width > maxW) { out.push(line); line = ch; } else { line += ch; }
+      }
+      out.push(line);
+    });
+    return out;
+  }
+  function drawText(ctx, t, W) {
+    if (!t.text) return;
+    const fs = t.fs * W, pad = fs * 0.25, bw = t.w * W, lh = fs * 1.3;
+    ctx.save();
+    ctx.font = fs + 'px ' + FONT; ctx.textBaseline = 'middle';
+    const lines = wrapLines(ctx, t.text, bw - pad * 2);
+    if (t.bg) {
+      ctx.fillStyle = 'rgba(255,255,255,0.82)';
+      ctx.fillRect(t.x * W, t.y * W, bw, lines.length * lh + pad * 2);
+    }
+    ctx.fillStyle = t.c;
+    lines.forEach(function (ln, i) { ctx.fillText(ln, t.x * W + pad, t.y * W + pad + i * lh + lh / 2); });
+    ctx.restore();
+  }
+  function redrawBase() {
+    const pg = cur(); if (!pg) return;
+    const ctx = base.getContext('2d');
+    ctx.clearRect(0, 0, pg.w, pg.h);
+    ctx.drawImage(pg.src, 0, 0, pg.w, pg.h);
+    pg.strokes.forEach(function (st) { drawStroke(ctx, st, pg.w); });
+  }
+  function clearLive() { live.getContext('2d').clearRect(0, 0, live.width, live.height); }
+  function renderCompositeCanvas(pg) {
+    const c = document.createElement('canvas');
+    c.width = pg.w; c.height = pg.h;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(pg.src, 0, 0, pg.w, pg.h);
+    pg.strokes.forEach(function (st) { drawStroke(ctx, st, pg.w); });
+    pg.texts.forEach(function (t) { drawText(ctx, t, pg.w); });
+    return c;
+  }
+
+  // ---------- 履歴（元に戻す／やり直し） ----------
+  function snap(pg) {
+    return { strokes: pg.strokes.slice(), texts: pg.texts.map(function (t) { return Object.assign({}, t); }) };
+  }
+  function commit() {
+    const pg = cur(); if (!pg) return;
+    pg.hist.length = pg.hi + 1;
+    pg.hist.push(snap(pg));
+    if (pg.hist.length > 60) pg.hist.shift();
+    pg.hi = pg.hist.length - 1;
+    markDirty(); updateUndoUI();
+  }
+  function restore(pg, s) {
+    pg.strokes = s.strokes.slice();
+    pg.texts = s.texts.map(function (t) { return Object.assign({}, t); });
+    S.selText = null;
+    redrawBase(); rebuildTexts(); syncToolUI();
+  }
+  function undo() {
+    const pg = cur(); if (!pg || pg.hi <= 0) return;
+    pg.hi--; restore(pg, pg.hist[pg.hi]); markDirty(); updateUndoUI();
+  }
+  function redo() {
+    const pg = cur(); if (!pg || pg.hi >= pg.hist.length - 1) return;
+    pg.hi++; restore(pg, pg.hist[pg.hi]); markDirty(); updateUndoUI();
+  }
+  function updateUndoUI() {
+    const pg = cur();
+    $('btnUndo').disabled = !pg || pg.hi <= 0;
+    $('btnRedo').disabled = !pg || pg.hi >= pg.hist.length - 1;
+  }
+
+  // ---------- ペン・消しゴム ----------
+  function toNorm(e) {
+    const r = live.getBoundingClientRect();
+    const p = e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5;
+    return [+((e.clientX - r.left) / r.width).toFixed(4), +((e.clientY - r.top) / r.width).toFixed(4), +p.toFixed(2)];
+  }
+  function distSeg(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy;
+    let t = l ? ((px - ax) * dx + (py - ay) * dy) / l : 0;
+    t = clamp(t, 0, 1);
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+  function strokeHit(st, x, y, r) {
+    const rr = r + st.s * 0.5, p = st.p;
+    if (p.length === 1) return Math.hypot(x - p[0][0], y - p[0][1]) <= rr;
+    for (let i = 1; i < p.length; i++) {
+      if (distSeg(x, y, p[i - 1][0], p[i - 1][1], p[i][0], p[i][1]) <= rr) return true;
+    }
+    return false;
+  }
+  function eraseAt(pt) {
+    const pg = cur(), r = CFG.eraser.val * CFG.eraser.mul;
+    const before = pg.strokes.length;
+    pg.strokes = pg.strokes.filter(function (st) { return !strokeHit(st, pt[0], pt[1], r); });
+    if (pg.strokes.length !== before) { S.drawing.changed = true; redrawBase(); }
+    clearLive();
+    const ctx = live.getContext('2d');
+    ctx.save(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = pg.w * 0.002;
+    ctx.setLineDash([pg.w * 0.006, pg.w * 0.006]);
+    ctx.beginPath(); ctx.arc(pt[0] * pg.w, pt[1] * pg.w, r * pg.w, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  function renderLive() {
+    const pg = cur(), d = S.drawing; if (!pg || !d || !d.st) return;
+    clearLive(); drawStroke(live.getContext('2d'), d.st, pg.w);
+  }
+  live.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  // 長押しの「選択」「画像メニュー」を止める（テキストツール中は click を使うので除外）
+  live.addEventListener('touchstart', function (e) { if (S.tool !== 'text') e.preventDefault(); }, { passive: false });
+  stage.addEventListener('selectstart', function (e) {
+    const n = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+    if (!(n && n.closest && n.closest('textarea'))) e.preventDefault();
+  });
+  live.addEventListener('pointerdown', function (e) {
+    const pg = cur(); if (!pg) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (S.tool === 'text') return;                                   // テキストは click で処理
+    if (e.pointerType === 'touch' && !S.fingerDraw) return;          // 指は無視（Pencil専用）
+    e.preventDefault();
+    live.setPointerCapture(e.pointerId);
+    const pt = toNorm(e);
+    if (S.tool === 'eraser') { S.drawing = { id: e.pointerId, erase: true, changed: false }; eraseAt(pt); return; }
+    const c = CFG[S.tool];
+    S.drawing = { id: e.pointerId, st: { t: S.tool === 'marker' ? 'm' : 'p', c: S.colors[S.tool], s: +(c.val * c.mul).toFixed(5), p: [pt] } };
+    renderLive();
+  });
+  live.addEventListener('pointermove', function (e) {
+    const d = S.drawing; if (!d || d.id !== e.pointerId) return;
+    const co = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+    const evs = co.length ? co : [e];
+    evs.forEach(function (ev) {
+      const pt = toNorm(ev);
+      if (d.erase) { eraseAt(pt); return; }
+      const last = d.st.p[d.st.p.length - 1];
+      if (Math.hypot(pt[0] - last[0], pt[1] - last[1]) >= 0.0006) d.st.p.push(pt);
+    });
+    if (!d.erase) renderLive();
+  });
+  function endDraw(e) {
+    const d = S.drawing; if (!d || d.id !== e.pointerId) return;
+    S.drawing = null; clearLive();
+    if (d.erase) { if (d.changed) commit(); return; }
+    cur().strokes.push(d.st); redrawBase(); commit();
+  }
+  live.addEventListener('pointerup', endDraw);
+  live.addEventListener('pointercancel', endDraw);
+
+  // ---------- テキスト枠 ----------
+  function selTextObj() {
+    const pg = cur(); if (!pg || !S.selText) return null;
+    return pg.texts.find(function (t) { return t.id === S.selText; }) || null;
+  }
+  function boxOf(id) { return textLayer.querySelector('.tbox[data-id="' + id + '"]'); }
+  function layoutBox(t, box) {
+    const k = S.k;
+    box.style.left = t.x * k + 'px'; box.style.top = t.y * k + 'px'; box.style.width = t.w * k + 'px';
+    box.style.fontSize = t.fs * k + 'px'; box.style.color = t.c;
+    box.classList.toggle('bg', !!t.bg);
+    box.classList.toggle('below', t.y * k < 46);
+    const ta = box.querySelector('textarea');
+    ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
+  }
+  function layoutTexts() {
+    const pg = cur(); if (!pg) return;
+    pg.texts.forEach(function (t) { const b = boxOf(t.id); if (b) layoutBox(t, b); });
+  }
+  function bindDrag(el, onStart, onMove) {
+    el.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      el.setPointerCapture(e.pointerId);
+      const st = onStart(e);
+      let moved = false;
+      function mv(ev) { if (ev.pointerId !== e.pointerId) return; moved = true; onMove(ev, st); }
+      function up(ev) {
+        if (ev.pointerId !== e.pointerId) return;
+        el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+        if (moved) commit();
+      }
+      el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    });
+  }
+  function makeBox(t) {
+    const box = document.createElement('div');
+    box.className = 'tbox'; box.dataset.id = t.id;
+    const ta = document.createElement('textarea');
+    ta.rows = 1; ta.value = t.text; ta.spellcheck = false; ta.setAttribute('aria-label', 'テキスト');
+    const grip = document.createElement('div'); grip.className = 'hd grip'; grip.textContent = '移動';
+    const del = document.createElement('div'); del.className = 'hd del'; del.textContent = '削除';
+    const rs = document.createElement('div'); rs.className = 'hd rs';
+    box.appendChild(ta); box.appendChild(grip); box.appendChild(del); box.appendChild(rs);
+
+    ta.addEventListener('focus', function () { selectText(t.id); });
+    ta.addEventListener('input', function () {
+      t.text = ta.value; if (t.text) t.fresh = false;
+      ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
+      markDirty();
+    });
+    ta.addEventListener('change', function () { commit(); });
+    ta.addEventListener('blur', function () { setTimeout(function () { if (!t.text.trim()) removeText(t); }, 0); });
+
+    bindDrag(grip, function (e) { selectText(t.id); return { sx: e.clientX, sy: e.clientY, ox: t.x, oy: t.y }; },
+      function (ev, s) {
+        const pg = cur();
+        t.x = clamp(s.ox + (ev.clientX - s.sx) / S.k, 0, 1 - t.w);
+        t.y = clamp(s.oy + (ev.clientY - s.sy) / S.k, 0, pg.h / pg.w - 0.03);
+        layoutBox(t, box);
+      });
+    bindDrag(rs, function (e) { selectText(t.id); return { sx: e.clientX, ow: t.w }; },
+      function (ev, s) {
+        t.w = clamp(s.ow + (ev.clientX - s.sx) / S.k, 0.12, 1 - t.x);
+        layoutBox(t, box);
+      });
+    del.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation(); t.fresh = false; t.text = ''; removeText(t);
+    });
+    return box;
+  }
+  function rebuildTexts() {
+    textLayer.innerHTML = '';
+    const pg = cur(); if (!pg) return;
+    pg.texts.forEach(function (t) { textLayer.appendChild(makeBox(t)); });
+    layoutTexts();
+    if (S.selText) { const b = boxOf(S.selText); if (b) b.classList.add('sel'); }
+  }
+  function removeText(t) {
+    const pg = cur(); if (!pg) return;
+    const i = pg.texts.indexOf(t); if (i < 0) return;
+    pg.texts.splice(i, 1);
+    const b = boxOf(t.id); if (b) b.remove();
+    if (S.selText === t.id) S.selText = null;
+    syncToolUI();
+    if (!t.fresh) commit();
+  }
+  function selectText(id) {
+    S.selText = id;
+    textLayer.querySelectorAll('.tbox').forEach(function (b) { b.classList.toggle('sel', b.dataset.id === id); });
+    syncToolUI();
+  }
+  function deselectText() {
+    S.selText = null;
+    textLayer.querySelectorAll('.tbox').forEach(function (b) { b.classList.remove('sel'); });
+    syncToolUI();
+  }
+  live.addEventListener('click', function (e) {
+    if (S.tool !== 'text') return;
+    const pg = cur(); if (!pg) return;
+    if (S.selText) { deselectText(); if (document.activeElement) document.activeElement.blur(); return; }
+    const pt = toNorm(e);
+    const w = Math.max(0.15, Math.min(0.42, 1 - pt[0]));
+    const t = {
+      id: uid(), x: Math.min(pt[0], 1 - w), y: Math.min(pt[1], pg.h / pg.w - 0.03), w: w,
+      fs: +(CFG.text.val * CFG.text.mul).toFixed(5), c: S.colors.text, bg: S.textBg, text: '', fresh: true
+    };
+    pg.texts.push(t);
+    const box = makeBox(t); textLayer.appendChild(box); layoutBox(t, box);
+    selectText(t.id);
+    box.querySelector('textarea').focus();
+  });
+  // 写真の外（暗い余白）をタップしたら、選択中のテキスト枠を解除する
+  stage.addEventListener('click', function (e) {
+    if (e.target === stage && S.selText) {
+      deselectText();
+      if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
+    }
+  });
+
+  // ---------- ツールバー ----------
+  function curColor() {
+    const t = selTextObj();
+    if (S.tool === 'text' && t) return t.c;
+    return S.colors[S.tool] || null;
+  }
+  function syncToolUI() {
+    document.querySelectorAll('#toolBtns button').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === S.tool); });
+    const c = CFG[S.tool], t = selTextObj();
+    const sl = $('size');
+    sl.min = c.min; sl.max = c.max;
+    sl.value = (S.tool === 'text' && t) ? Math.round(t.fs / c.mul) : c.val;
+    $('sizeLabel').textContent = c.label;
+    const col = curColor();
+    document.querySelectorAll('#swatches button').forEach(function (b) {
+      b.hidden = S.tool === 'eraser';
+      b.setAttribute('aria-pressed', String(b.dataset.c === col));
+    });
+    $('btnBg').hidden = S.tool !== 'text';
+    $('btnBg').classList.toggle('on', t ? !!t.bg : S.textBg);
+    wrap.classList.toggle('text-mode', S.tool === 'text');
+    live.style.cursor = S.tool === 'text' ? 'text' : 'crosshair';
+  }
+  function setTool(name) {
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
+    S.tool = name; S.selText = null;
+    textLayer.querySelectorAll('.tbox').forEach(function (b) { b.classList.remove('sel'); });
+    syncToolUI();
+  }
+  document.querySelectorAll('#toolBtns button').forEach(function (b) {
+    b.addEventListener('click', function () { setTool(b.dataset.tool); });
+  });
+  SWATCHES.forEach(function (s) {
+    const b = document.createElement('button');
+    b.className = 'sw'; b.dataset.c = s[0]; b.setAttribute('aria-label', s[1]);
+    b.innerHTML = '<i style="background:' + s[0] + '"></i>';
+    b.addEventListener('click', function () {
+      const t = selTextObj();
+      if (S.tool === 'text') {
+        S.colors.text = s[0];
+        if (t) { t.c = s[0]; layoutTexts(); commit(); }
+      } else if (S.tool !== 'eraser') { S.colors[S.tool] = s[0]; }
+      syncToolUI();
+    });
+    $('swatches').appendChild(b);
+  });
+  $('size').addEventListener('input', function (e) {
+    const v = +e.target.value, c = CFG[S.tool];
+    c.val = v;
+    if (S.tool === 'text') { const t = selTextObj(); if (t) { t.fs = v * c.mul; layoutTexts(); markDirty(); } }
+  });
+  $('size').addEventListener('change', function () { if (S.tool === 'text' && selTextObj()) commit(); });
+  $('btnBg').addEventListener('click', function () {
+    const t = selTextObj();
+    if (t) { t.bg = !t.bg; layoutTexts(); commit(); } else { S.textBg = !S.textBg; }
+    syncToolUI();
+  });
+  $('btnUndo').addEventListener('click', undo);
+  $('btnRedo').addEventListener('click', redo);
+  $('chkFinger').addEventListener('change', function (e) { S.fingerDraw = e.target.checked; });
+
+  // ---------- ページ ----------
+  function renderPages() {
+    const box = $('pageStrip'); box.innerHTML = '';
+    S.pages.forEach(function (pg, i) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (i === S.cur ? ' on' : '');
+      b.textContent = String(i + 1); b.setAttribute('aria-label', (i + 1) + 'ページ目');
+      b.addEventListener('click', function () { selectPage(i); });
+      box.appendChild(b);
+    });
+    $('btnDelPage').hidden = !S.pages.length;
+  }
+  function fit() {
+    const pg = cur();
+    $('empty').hidden = !!pg; wrap.hidden = !pg;
+    if (!pg) return;
+    const aw = stage.clientWidth - 32, ah = stage.clientHeight - 32;
+    if (aw <= 0 || ah <= 0) return;
+    const sc = Math.min(aw / pg.w, ah / pg.h);
+    S.k = pg.w * sc;
+    wrap.style.width = pg.w * sc + 'px'; wrap.style.height = pg.h * sc + 'px';
+    layoutTexts();
+  }
+  function selectPage(i) {
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
+    S.cur = i; S.selText = null;
+    const pg = cur();
+    if (pg) { base.width = live.width = pg.w; base.height = live.height = pg.h; redrawBase(); clearLive(); }
+    rebuildTexts(); fit(); renderPages(); updateUndoUI(); syncToolUI();
+  }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(stage);
+  window.addEventListener('resize', fit);
+
+  async function fileToPage(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const im = await loadImage(url);
+      const sc = Math.min(1, MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
+      const w = Math.round(im.naturalWidth * sc), h = Math.round(im.naturalHeight * sc);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(im, 0, 0, w, h);
+      const pg = { id: uid(), w: w, h: h, src: c, blob: await toBlob(c, 'image/jpeg', 0.88), strokes: [], texts: [] };
+      pg.hist = [snap(pg)]; pg.hi = 0;
+      return pg;
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function addPhotos(files) {
+    if (!files || !files.length) return;
+    busy('写真を読み込み中…');
+    try {
+      let last = -1;
+      for (const f of Array.prototype.slice.call(files)) {
+        S.pages.push(await fileToPage(f)); last = S.pages.length - 1;
+      }
+      markDirty();
+      busy(''); selectPage(last);
+    } catch (e) { busy(''); toast('写真を追加できませんでした：' + e.message, true); }
+  }
+  $('btnAdd').addEventListener('click', function () { $('fileInput').click(); });
+  $('btnAdd2').addEventListener('click', function () { $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function (e) {
+    const files = e.target.files; addPhotos(files); e.target.value = '';
+  });
+  $('btnDelPage').addEventListener('click', function () {
+    const pg = cur(); if (!pg) return;
+    if (!confirm((S.cur + 1) + 'ページ目の写真と書き込みを削除します。よろしいですか？')) return;
+    S.pages.splice(S.cur, 1); markDirty();
+    selectPage(S.pages.length ? Math.min(S.cur, S.pages.length - 1) : -1);
+  });
+
+  // ---------- メモ・タイトル ----------
+  $('btnMemo').addEventListener('click', function () { $('memoText').value = S.memo; $('memoModal').hidden = false; $('memoText').focus(); });
+  $('btnMemoClose').addEventListener('click', function () {
+    const v = $('memoText').value;
+    if (v !== S.memo) { S.memo = v; markDirty(); }
+    $('memoModal').hidden = true;
+  });
+  $('inTitle').addEventListener('input', function (e) { S.title = e.target.value; markDirty(); });
+  $('inDate').addEventListener('input', function (e) { S.date = e.target.value; markDirty(); });
+
+  // ---------- PDF作成（端末内で作成。通信は不要） ----------
+  const DPI = 150, A4P = [1240, 1754], A4L = [1754, 1240], HEADER_H = 96, MARGIN = 40;
+  function safeName(s) { return String(s).replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || '無題'; }
+  function pdfFileName() { return (S.date || todayStr()) + '_' + safeName(S.title || '無題') + '.pdf'; }
+  function fitText(ctx, text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text;
+    let s = text;
+    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+    return s + '…';
+  }
+  function newPageCanvas(W, H) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    return c;
+  }
+  function drawHeader(ctx, W, n, total) {
+    const title = S.title || '無題';
+    ctx.save(); ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#1b2430'; ctx.font = 'bold 38px ' + FONT;
+    const numStr = n + ' / ' + total;
+    ctx.font = '28px ' + FONT; const numW = ctx.measureText(numStr).width;
+    ctx.font = '26px ' + FONT; const dateStr = S.date || ''; const dateW = ctx.measureText(dateStr).width;
+    ctx.font = 'bold 38px ' + FONT;
+    const maxTitle = W - MARGIN * 2 - numW - dateW - 60;
+    const t = fitText(ctx, title, Math.max(200, maxTitle));
+    ctx.fillText(t, MARGIN, 62);
+    const tw = ctx.measureText(t).width;
+    ctx.fillStyle = '#5b6573'; ctx.font = '26px ' + FONT; ctx.fillText(dateStr, MARGIN + tw + 24, 62);
+    ctx.font = '28px ' + FONT; ctx.fillText(numStr, W - MARGIN - numW, 62);
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(MARGIN, HEADER_H - 8); ctx.lineTo(W - MARGIN, HEADER_H - 8); ctx.stroke();
+    ctx.restore();
+  }
+  async function canvasJpeg(c) {
+    const b = await toBlob(c, 'image/jpeg', 0.85);
+    return new Uint8Array(await b.arrayBuffer());
+  }
+  function memoPagesLines() {
+    const memo = S.memo.trim(); if (!memo) return [];
+    const ctx = newPageCanvas(10, 10).getContext('2d'); ctx.font = '34px ' + FONT;
+    const lines = wrapLines(ctx, memo, A4P[0] - MARGIN * 2 - 40);
+    const lh = 34 * 1.7, top = HEADER_H + 110, cap = Math.max(1, Math.floor((A4P[1] - top - 80) / lh));
+    const out = [];
+    for (let i = 0; i < lines.length; i += cap) out.push(lines.slice(i, i + cap));
+    return out;
+  }
+  async function buildPdf(onProgress) {
+    const memoPages = memoPagesLines();
+    const total = memoPages.length + S.pages.length;
+    const out = []; let n = 0;
+    for (let mi = 0; mi < memoPages.length; mi++) {
+      n++;
+      const c = newPageCanvas(A4P[0], A4P[1]), ctx = c.getContext('2d');
+      drawHeader(ctx, A4P[0], n, total);
+      ctx.fillStyle = '#1b2430'; ctx.font = 'bold 40px ' + FONT; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(mi === 0 ? '全体メモ' : '全体メモ（続き）', MARGIN + 20, HEADER_H + 70);
+      ctx.font = '34px ' + FONT; ctx.fillStyle = '#1b2430';
+      memoPages[mi].forEach(function (ln, i) { ctx.fillText(ln, MARGIN + 20, HEADER_H + 130 + 34 + i * 34 * 1.7); });
+      out.push({ wPx: c.width, hPx: c.height, jpeg: await canvasJpeg(c) });
+      c.width = c.height = 0;
+    }
+    for (const pg of S.pages) {
+      n++;
+      const land = pg.w >= pg.h, sz = land ? A4L : A4P;
+      const c = newPageCanvas(sz[0], sz[1]), ctx = c.getContext('2d');
+      drawHeader(ctx, sz[0], n, total);
+      const ax = MARGIN, ay = HEADER_H + 8, aw = sz[0] - MARGIN * 2, ah = sz[1] - ay - MARGIN;
+      const sc = Math.min(aw / pg.w, ah / pg.h), dw = pg.w * sc, dh = pg.h * sc;
+      const comp = renderCompositeCanvas(pg);
+      ctx.drawImage(comp, ax + (aw - dw) / 2, ay + (ah - dh) / 2, dw, dh);
+      comp.width = comp.height = 0;
+      out.push({ wPx: c.width, hPx: c.height, jpeg: await canvasJpeg(c) });
+      c.width = c.height = 0;
+      if (onProgress) onProgress(n, total);
+    }
+    return { blob: makePdf(out, S.title || '無題'), pages: total };
+  }
+  // JPEGをそのまま埋め込む最小限のPDFライター（外部ライブラリ不要）
+  function makePdf(pgs, title) {
+    const enc = new TextEncoder(), chunks = [], offs = [];
+    let len = 0;
+    function push(b) { const u = typeof b === 'string' ? enc.encode(b) : b; chunks.push(u); len += u.length; }
+    function begin(n) { offs[n] = len; push(n + ' 0 obj\n'); }
+    function utf16hex(s) {
+      let h = 'FEFF';
+      for (let i = 0; i < s.length; i++) h += ('0000' + s.charCodeAt(i).toString(16)).slice(-4).toUpperCase();
+      return '<' + h + '>';
+    }
+    const d = new Date();
+    const cdate = 'D:' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds());
+    const nObj = 3 + pgs.length * 3;
+    push('%PDF-1.4\n');
+    begin(1); push('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+    begin(2);
+    push('<< /Type /Pages /Count ' + pgs.length + ' /Kids [' + pgs.map(function (_, i) { return (4 + i * 3) + ' 0 R'; }).join(' ') + '] >>\nendobj\n');
+    begin(3); push('<< /Title ' + utf16hex(title) + ' /Producer (Tenjikai Report) /CreationDate (' + cdate + ') >>\nendobj\n');
+    pgs.forEach(function (p, i) {
+      const po = 4 + i * 3, co = po + 1, io = po + 2;
+      const wPt = (p.wPx * 72 / DPI).toFixed(2), hPt = (p.hPx * 72 / DPI).toFixed(2);
+      begin(po);
+      push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + wPt + ' ' + hPt + '] /Resources << /XObject << /Im0 ' + io + ' 0 R >> >> /Contents ' + co + ' 0 R >>\nendobj\n');
+      const content = 'q ' + wPt + ' 0 0 ' + hPt + ' 0 0 cm /Im0 Do Q';
+      begin(co); push('<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream\nendobj\n');
+      begin(io);
+      push('<< /Type /XObject /Subtype /Image /Width ' + p.wPx + ' /Height ' + p.hPx + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.jpeg.length + ' >>\nstream\n');
+      push(p.jpeg); push('\nendstream\nendobj\n');
+    });
+    const xref = len;
+    let x = 'xref\n0 ' + (nObj + 1) + '\n0000000000 65535 f \n';
+    for (let n = 1; n <= nObj; n++) x += ('0000000000' + offs[n]).slice(-10) + ' 00000 n \n';
+    push(x + 'trailer\n<< /Size ' + (nObj + 1) + ' /Root 1 0 R /Info 3 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+  function fmtSize(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+
+  function refreshPdfNote() {
+    const el = $('uploadNote');
+    if (S.status === 'sent') el.textContent = '✔ ドライブへ送信済みです（' + hhmm(S.sentAt) + '）。';
+    else if (S.status === 'queued') el.textContent = '送信待ちです。通信できる場所で自動的に送信します。';
+    else el.textContent = '';
+    $('btnUpload').textContent = S.status === 'sent' ? 'もう一度ドライブへ送信' : 'ドライブへ送信';
+  }
+  async function openPdf() {
+    if (!S.pages.length && !S.memo.trim()) { toast('写真を追加してからPDFを作成してください', true); return; }
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
+    await flushSave();
+    if (!S.lastPdf) {
+      busy('PDFを作成中…');
+      try {
+        const r = await buildPdf(function (n, t) { busy('PDFを作成中… ' + n + '/' + t); });
+        S.lastPdf = r;
+      } catch (e) { busy(''); toast('PDFを作成できませんでした：' + e.message, true); return; }
+      busy('');
+    }
+    $('pdfInfo').textContent = pdfFileName() + '　' + S.lastPdf.pages + 'ページ・' + fmtSize(S.lastPdf.blob.size);
+    refreshPdfNote();
+    $('pdfModal').hidden = false;
+  }
+  $('btnPdf').addEventListener('click', openPdf);
+  $('btnPdfClose').addEventListener('click', function () { $('pdfModal').hidden = true; });
+  // 共有は「ボタンを押した直後」でないとiPadが許可しないため、PDF作成とは別のボタンにしている
+  $('btnShare').addEventListener('click', async function () {
+    if (!S.lastPdf) return;
+    const file = new File([S.lastPdf.blob], pdfFileName(), { type: 'application/pdf' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: S.title || '展示会レポート' });
+        return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(S.lastPdf.blob); a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 30000);
+  });
+
+  // ---------- ドライブへ送信（圏外なら「送信待ち」→ 通信できたら自動送信） ----------
+  function getCfg() {
+    let c = {};
+    try { c = JSON.parse(localStorage.getItem('tj_cfg') || '{}'); } catch (e) { /* 無視 */ }
+    return { url: (c.url || DEFAULT_GAS_URL || '').trim(), token: (c.token || '').trim() };
+  }
+  function netError(msg) { const e = new Error(msg || '通信できませんでした'); e.net = true; return e; }
+  async function callGas(cfg, payload) {
+    let res;
+    try {
+      res = await fetch(cfg.url, {
+        method: 'POST', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // プリフライトを避けるため text/plain
+        body: JSON.stringify(Object.assign({ token: cfg.token }, payload))
+      });
+    } catch (e) { throw netError('通信できませんでした（圏外、または送信先URL・公開設定を確認してください）'); }
+    if (!res.ok) throw netError('送信先が応答しませんでした（' + res.status + '）');
+    let j;
+    try { j = await res.json(); } catch (e) { throw netError('送信先の応答が不正です。URLと「アクセスできるユーザー：全員」の設定を確認してください'); }
+    if (!j.ok) { const er = new Error(j.error || '送信に失敗しました'); er.fatal = true; throw er; }
+    return j;
+  }
+  let flushing = false;
+  async function flushOutbox() {
+    if (flushing) return { sent: 0, pending: -1 };
+    flushing = true;
+    let sent = 0, pending = 0, lastErr = '';
+    try {
+      const items = await DB.all('outbox');
+      const cfg = getCfg();
+      for (const it of items) {
+        if (!navigator.onLine || !cfg.url || !cfg.token) { pending++; if (!cfg.url || !cfg.token) lastErr = '送信設定が未入力です'; continue; }
+        try {
+          const j = await callGas(cfg, { action: 'upload', fileName: it.fileName, pdfBase64: await blobToBase64(it.blob) });
+          await DB.del('outbox', it.id);
+          await markSent(it.reportId);
+          sent++;
+        } catch (e) {
+          pending++; lastErr = e.message;
+          it.error = e.message; await DB.put('outbox', it);
+        }
+      }
+    } finally { flushing = false; }
+    if (sent) toast('ドライブへ送信しました（' + sent + '件）');
+    if (!$('list').hidden) renderList();
+    return { sent: sent, pending: pending, error: lastErr };
+  }
+  async function markSent(reportId) {
+    const now = Date.now();
+    if (S.reportId === reportId && !$('editor').hidden) {
+      S.status = 'sent'; S.sentAt = now; S.needSave = true;
+      await flushSave(); refreshPdfNote();
+      return;
+    }
+    const doc = await DB.get('reports', reportId);
+    if (doc) { doc.status = 'sent'; doc.sentAt = now; await DB.put('reports', doc); }
+  }
+  $('btnUpload').addEventListener('click', async function () {
+    const cfg = getCfg();
+    if (!cfg.url || !cfg.token) { $('pdfModal').hidden = true; openSettings('先に送信先URLと合言葉を入力してください'); return; }
+    if (!S.lastPdf) return;
+    $('btnUpload').disabled = true;
+    try {
+      await DB.put('outbox', { id: S.reportId, reportId: S.reportId, fileName: pdfFileName(), blob: S.lastPdf.blob, createdAt: Date.now(), error: null });
+      S.status = 'queued'; S.needSave = true; await flushSave();
+      $('uploadNote').textContent = navigator.onLine ? '送信中…' : '';
+      const r = await flushOutbox();
+      refreshPdfNote();
+      if (r.pending > 0 && S.status !== 'sent') {
+        $('uploadNote').textContent = navigator.onLine
+          ? '送信できませんでした：' + (r.error || '不明なエラー') + '（送信待ちに残しています）'
+          : '圏外のため「送信待ち」にしました。通信できる場所で自動的に送信します。';
+      }
+    } catch (e) { toast('送信の準備に失敗しました：' + e.message, true); }
+    finally { $('btnUpload').disabled = false; }
+  });
+  window.addEventListener('online', function () { updateNet(); flushOutbox(); });
+  window.addEventListener('offline', updateNet);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) flushOutbox(); });
+  function updateNet() { $('netPill').hidden = navigator.onLine; }
+
+  // ---------- 送信設定 ----------
+  function openSettings(msg) {
+    const c = getCfg();
+    $('cfgUrl').value = c.url; $('cfgToken').value = c.token;
+    $('cfgResult').textContent = msg || '';
+    $('cfgModal').hidden = false;
+  }
+  $('btnSettings').addEventListener('click', function () { openSettings(''); });
+  $('btnCfgClose').addEventListener('click', function () { $('cfgModal').hidden = true; });
+  $('btnCfgSave').addEventListener('click', function () {
+    try { localStorage.setItem('tj_cfg', JSON.stringify({ url: $('cfgUrl').value.trim(), token: $('cfgToken').value.trim() })); } catch (e) { /* 無視 */ }
+    $('cfgModal').hidden = true; toast('送信設定を保存しました'); flushOutbox();
+  });
+  $('btnCfgTest').addEventListener('click', async function () {
+    const cfg = { url: $('cfgUrl').value.trim(), token: $('cfgToken').value.trim() };
+    if (!cfg.url || !cfg.token) { $('cfgResult').textContent = 'URLと合言葉を入力してください'; return; }
+    $('cfgResult').textContent = '確認中…';
+    try { const j = await callGas(cfg, { action: 'ping' }); $('cfgResult').textContent = '接続OK（保存先フォルダ：' + (j.folder || '') + '）'; }
+    catch (e) { $('cfgResult').textContent = '接続できませんでした：' + e.message; }
+  });
+
+  // ---------- 一覧・開く・新規 ----------
+  function resetState() {
+    S.reportId = uid(); S.title = ''; S.date = todayStr(); S.memo = ''; S.status = 'draft'; S.sentAt = 0;
+    S.pages = []; S.cur = -1; S.selText = null; S.needSave = false; S.lastPdf = null; S.drawing = null;
+    $('inTitle').value = ''; $('inDate').value = S.date; $('saveState').textContent = '';
+    textLayer.innerHTML = '';
+  }
+  function showEditor() {
+    $('list').hidden = true; $('editor').hidden = false;
+    setTool('pen'); selectPage(S.cur);
+    requestAnimationFrame(fit);
+  }
+  async function renderList() {
+    $('reportList').innerHTML = '';
+    try {
+      const docs = await DB.all('reports');
+      const outbox = {}; (await DB.all('outbox')).forEach(function (o) { outbox[o.id] = o; });
+      docs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || (b.updatedAt - a.updatedAt); });
+      $('listMsg').textContent = docs.length ? '' : 'まだレポートがありません。「新規作成」から始めましょう。';
+      docs.forEach(function (it) {
+        const li = document.createElement('li'); li.className = 'rep';
+        const open = document.createElement('button'); open.className = 'open';
+        const b = document.createElement('b'); b.textContent = it.title || '無題';
+        const bd = document.createElement('span'); bd.className = 'badge ' + (it.status || 'draft');
+        bd.textContent = it.status === 'sent' ? '送信済み' : it.status === 'queued' ? '送信待ち' : '下書き';
+        b.appendChild(bd);
+        const sp = document.createElement('span'); sp.textContent = (it.date || '') + '　' + it.pages.length + 'ページ';
+        open.appendChild(b); open.appendChild(sp);
+        const ob = outbox[it.id];
+        if (it.status === 'queued' && ob && ob.error) { const er = document.createElement('span'); er.className = 'errline'; er.textContent = ob.error; open.appendChild(er); }
+        open.addEventListener('click', function () { openReport(it.id); });
+        const del = document.createElement('button'); del.className = 'danger'; del.textContent = '削除';
+        del.addEventListener('click', async function () {
+          if (!confirm('「' + (it.title || '無題') + '」を、このiPadから削除します。\nドライブに送信済みのPDFは消えません。よろしいですか？')) return;
+          try {
+            await DB.del('reports', it.id); await DB.del('outbox', it.id); await DB.prunePhotos(it.id, {});
+            toast('削除しました'); renderList();
+          } catch (e) { toast('削除できませんでした：' + e.message, true); }
+        });
+        li.appendChild(open); li.appendChild(del); $('reportList').appendChild(li);
+      });
+    } catch (e) { $('listMsg').textContent = '一覧を読み込めませんでした：' + e.message; }
+  }
+  async function showList() {
+    await flushSave();
+    $('editor').hidden = true; $('list').hidden = false;
+    const standalone = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    let closed = false; try { closed = localStorage.getItem('tj_hint_closed') === '1'; } catch (e) { /* 無視 */ }
+    $('installHint').hidden = !!standalone || closed;
+    await renderList();
+  }
+  $('btnHintClose').addEventListener('click', function () {
+    try { localStorage.setItem('tj_hint_closed', '1'); } catch (e) { /* 無視 */ }
+    $('installHint').hidden = true;
+  });
+  async function openReport(id) {
+    busy('読み込み中…');
+    try {
+      const doc = await DB.get('reports', id);
+      if (!doc) throw new Error('見つかりません');
+      resetState();
+      S.reportId = id; S.title = doc.title || ''; S.date = doc.date || todayStr(); S.memo = doc.memo || '';
+      S.status = doc.status || 'draft'; S.sentAt = doc.sentAt || 0;
+      $('inTitle').value = S.title; $('inDate').value = S.date;
+      for (const p of doc.pages) {
+        const blob = await DB.get('photos', id + ':' + p.id);
+        if (!blob) throw new Error('写真データが見つかりません');
+        const pg = {
+          id: p.id, w: p.w, h: p.h, src: await blobToImage(blob), blob: null,
+          strokes: p.strokes || [], texts: (p.texts || []).map(function (t) { return Object.assign({}, t); })
+        };
+        pg.hist = [snap(pg)]; pg.hi = 0;
+        S.pages.push(pg);
+      }
+      S.cur = S.pages.length ? 0 : -1;
+      busy(''); showEditor();
+      $('saveState').textContent = '端末に保存済み';
+    } catch (e) { busy(''); toast('開けませんでした：' + e.message, true); }
+  }
+  $('btnNew').addEventListener('click', function () { resetState(); showEditor(); });
+  $('btnBack').addEventListener('click', function () { showList(); });
+
+  // ---------- 起動 ----------
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('./sw.js').catch(function () { /* 登録できなくても通常動作は可能 */ });
+  }
+  updateNet();
+  resetState();
+  showList().then(function () { flushOutbox(); });
+})();
+</script>
+</body>
+</html>

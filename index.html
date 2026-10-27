@@ -120,6 +120,27 @@
   .tbox .rs { right: -16px; bottom: -16px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); }
   .tbox.below .grip, .tbox.below .del { top: calc(100% + 6px); }
 
+  /* フォルダ画面 */
+  #folder { max-width: 900px; margin: 0 auto; padding-bottom: 64px; }
+  .fname { flex: 1 1 200px; font-size: 20px; }
+  .ename { flex: 1 1 160px; font-size: 18px; }
+  #fBody { padding: 12px 16px; }
+  #fBody h2 { font-size: 15px; margin: 22px 0 8px; color: var(--sub); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .thumb { padding: 6px; min-height: 0; display: grid; gap: 4px; justify-items: center; }
+  .thumb canvas { max-width: 100%; height: auto; border-radius: 6px; }
+  .memoview { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; line-height: 1.6; min-height: 44px; }
+  #fVideos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .vid { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; flex-wrap: wrap; }
+  .vinfo { flex: 1 1 200px; min-width: 0; word-break: break-all; }
+  #vidPlayer { width: 100%; max-height: 70vh; background: #000; border-radius: 8px; }
+
+  .low { color: var(--danger); font-weight: 700; }
+  .opt { border: 1px solid var(--line); border-radius: 10px; margin: 0; padding: 4px 12px 8px; display: grid; }
+  .opt legend { font-size: 13px; color: var(--sub); padding: 0 6px; }
+  .modal label.chk { display: flex; color: var(--ink); font-size: 16px; }
+
   /* モーダル・通知 */
   .overlay { position: fixed; inset: 0; background: rgba(15,20,28,.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
   .modal { background: #fff; border-radius: 14px; padding: 18px; width: min(640px, 100%); display: grid; gap: 12px; max-height: 92vh; overflow: auto; }
@@ -143,25 +164,54 @@
     <h1>展示会レポート</h1>
     <div class="btns">
       <button id="btnSettings">送信設定</button>
-      <button class="primary" id="btnNew">新規作成</button>
+      <button class="primary" id="btnNew">報告書フォルダ作成</button>
     </div>
   </div>
   <div class="hint" id="installHint" hidden>
     <div>圏外でも使うには、Safariの共有ボタンから<b>「ホーム画面に追加」</b>をして、ホーム画面のアイコンから開いてください。<br>写真や下書きはこのiPadの中に保存されます。</div>
     <button id="btnHintClose">閉じる</button>
   </div>
+  <p class="sub" id="storageInfo"></p>
   <p class="sub" id="listMsg"></p>
   <ul id="reportList"></ul>
 </section>
 
+<section id="folder" hidden>
+  <div class="topbar">
+    <button id="btnFBack">一覧へ</button>
+    <b id="fName" class="fname"></b>
+    <span class="sub" id="fState"></span>
+  </div>
+  <div id="fBody">
+    <div class="sub" id="fStorage"></div>
+    <div class="actions">
+      <button class="primary" id="fAddPhoto">写真を追加</button>
+      <button id="fAddVideo">動画を追加</button>
+      <button id="fMemo">メモを書く</button>
+      <button class="primary" id="fPdf">PDF・スライドを作成</button>
+      <button id="fDrive" hidden>ドライブで開く</button>
+      <button id="fSlides" hidden>スライドを開く</button>
+    </div>
+    <h2>写真（タップして書き込み）</h2>
+    <div class="sub" id="fPhotosEmpty">まだ写真がありません。</div>
+    <div class="grid" id="fPhotos"></div>
+    <h2>メモ</h2>
+    <div class="memoview" id="fMemoView"></div>
+    <h2>動画（PDF・スライドには入らず、ドライブへ別ファイルで送ります）</h2>
+    <div class="sub" id="fVideosEmpty">まだ動画がありません。</div>
+    <ul id="fVideos"></ul>
+  </div>
+</section>
+
 <section id="editor" hidden>
   <div class="topbar">
-    <button id="btnBack">一覧へ</button>
-    <input type="text" id="inTitle" placeholder="展示会名・タイトル" aria-label="タイトル">
-    <input type="date" id="inDate" aria-label="日付">
+    <button id="btnBack">フォルダへ</button>
+    <b id="eName" class="ename"></b>
+    <input type="text" id="inTitle" hidden aria-label="タイトル">
+    <input type="date" id="inDate" hidden aria-label="日付">
     <button id="btnMemo">全体メモ</button>
     <span class="sub" id="saveState"></span>
-    <button class="primary" id="btnPdf">PDFを作成</button>
+    <button class="primary" id="btnPdf">PDF・スライド作成</button>
   </div>
   <div class="tools">
     <div class="group" id="pageStrip"></div>
@@ -203,9 +253,25 @@
   </div>
 </div>
 
+<div class="overlay" id="outModal" hidden>
+  <div class="modal" role="dialog" aria-label="出力設定">
+    <b>出力設定</b>
+    <fieldset class="opt"><legend>形式</legend>
+      <label class="chk"><input type="radio" name="ofmt" value="pdf">PDF</label>
+      <label class="chk"><input type="radio" name="ofmt" value="slides">Googleスライド（ドライブに作成）</label>
+    </fieldset>
+    <fieldset class="opt"><legend>写真</legend>
+      <label class="chk"><input type="radio" name="oimg" value="annot">書き込み（手書き・テキスト）を入れた写真</label>
+      <label class="chk"><input type="radio" name="oimg" value="orig">元の写真（書き込みなし）</label>
+    </fieldset>
+    <div class="sub">全体メモは、PDFでは最初のページ、スライドでは最初のスライドに入ります。</div>
+    <div class="row"><button id="btnOutCancel">キャンセル</button><button class="primary" id="btnOutGo">作成</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="pdfModal" hidden>
   <div class="modal" role="dialog" aria-label="PDF">
-    <b>PDFができました</b>
+    <b id="pdfTitle">できました</b>
     <div class="sub" id="pdfInfo"></div>
     <div class="col">
       <button class="primary" id="btnUpload">ドライブへ送信</button>
@@ -231,10 +297,31 @@
   </div>
 </div>
 
+<div class="overlay" id="newModal" hidden>
+  <div class="modal" role="dialog" aria-label="報告書フォルダ作成">
+    <b>報告書フォルダ作成</b>
+    <label>何の報告書か<input type="text" id="nTitle" placeholder="例：○○展示会 視察" autocomplete="off"></label>
+    <label>日付<input type="date" id="nDate"></label>
+    <div class="sub" id="nMsg"></div>
+    <div class="row">
+      <button id="btnNewCancel">キャンセル</button>
+      <button class="primary" id="btnNewCreate">フォルダ作成</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="vidModal" hidden>
+  <div class="modal" role="dialog" aria-label="動画">
+    <video id="vidPlayer" controls playsinline></video>
+    <div class="row"><button id="btnVidClose">閉じる</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="busyBox" hidden><div id="busy">読み込み中…</div></div>
 <div id="toast" role="status"></div>
 <div id="netPill" hidden>オフライン（下書きは端末に保存されます）</div>
 <input type="file" id="fileInput" accept="image/*" multiple hidden>
+<input type="file" id="videoInput" accept="video/*" multiple hidden>
 
 <script>
 (function () {
@@ -259,7 +346,7 @@
         textLayer = $('textLayer'), stage = $('stage');
   const S = {
     reportId: null, title: '', date: '', memo: '', status: 'draft', sentAt: 0,
-    pages: [], cur: -1, needSave: false, lastPdf: null,
+    pages: [], videos: [], cur: -1, needSave: false, lastPdf: null,
     tool: 'pen', colors: { pen: '#e5383b', marker: '#facc15', text: '#111827' },
     textBg: true, fingerDraw: false, selText: null, k: 1, drawing: null
   };
@@ -313,12 +400,13 @@
   function db() {
     if (!dbp) {
       dbp = new Promise(function (res, rej) {
-        const r = indexedDB.open('tenjikai-report', 1);
+        const r = indexedDB.open('tenjikai-report', 2);
         r.onupgradeneeded = function () {
           const d = r.result;
-          d.createObjectStore('reports', { keyPath: 'id' });   // レポート本体（線・テキスト）
-          d.createObjectStore('photos');                        // 写真（キー: レポートID:ページID）
-          d.createObjectStore('outbox', { keyPath: 'id' });     // 送信待ちPDF（キー: レポートID）
+          if (!d.objectStoreNames.contains('reports')) d.createObjectStore('reports', { keyPath: 'id' });   // フォルダ本体（線・テキスト・メモ）
+          if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos');                        // 写真（キー: フォルダID:ページID）
+          if (!d.objectStoreNames.contains('outbox')) d.createObjectStore('outbox', { keyPath: 'id' });    // 送信待ち（PDF・動画）
+          if (!d.objectStoreNames.contains('videos')) d.createObjectStore('videos');                        // 動画（キー: フォルダID:動画ID）
         };
         r.onsuccess = function () { res(r.result); };
         r.onerror = function () { rej(r.error); };
@@ -355,13 +443,14 @@
   // ---------- 自動保存（下書き） ----------
   let saveTimer = null, saveChain = Promise.resolve();
   function hasContent() { return S.pages.length > 0 || S.title.trim() !== '' || S.memo.trim() !== ''; }
-  function markDirty() {
-    S.lastPdf = null; S.needSave = true;
-    if (S.status !== 'draft') {
+  function markDirty(metaOnly) {
+    S.needSave = true;
+    if (!metaOnly) S.lastPdf = null;
+    if (!metaOnly && S.status !== 'draft') {
       const was = S.status; S.status = 'draft';
       if (was === 'queued') {
         DB.del('outbox', S.reportId).catch(function () {});
-        toast('編集したので「送信待ち」を取り消しました。編集後にもう一度PDFを送信してください');
+        toast('編集したので「送信待ち」を取り消しました。編集後にもう一度送信してください');
       }
     }
     $('saveState').textContent = '編集中…';
@@ -380,6 +469,8 @@
     const rid = S.reportId;
     const doc = {
       id: rid, title: S.title, date: S.date, memo: S.memo, status: S.status, sentAt: S.sentAt, updatedAt: Date.now(),
+      videos: S.videos.map(function (v) { return { id: v.id, name: v.name, size: v.size, type: v.type, sent: !!v.sent }; }),
+      driveUrl: S.driveUrl || '', slidesUrl: S.slidesUrl || '',
       pages: S.pages.map(function (pg) {
         return {
           id: pg.id, w: pg.w, h: pg.h, strokes: pg.strokes,
@@ -392,6 +483,7 @@
       keep[rid + ':' + pg.id] = true;
       if (pg.blob) { await DB.put('photos', pg.blob, rid + ':' + pg.id); pg.blob = null; }
     }
+    for (const v of S.videos) { if (v.blob) { await DB.put('videos', v.blob, rid + ':' + v.id); v.blob = null; } }
     await DB.put('reports', doc);
     await DB.prunePhotos(rid, keep);
     if (!S.needSave) $('saveState').textContent = '端末に保存済み ' + hhmm();
@@ -469,11 +561,12 @@
     pg.strokes.forEach(function (st) { drawStroke(ctx, st, pg.w); });
   }
   function clearLive() { live.getContext('2d').clearRect(0, 0, live.width, live.height); }
-  function renderCompositeCanvas(pg) {
+  function renderCompositeCanvas(pg, orig) {
     const c = document.createElement('canvas');
     c.width = pg.w; c.height = pg.h;
     const ctx = c.getContext('2d');
     ctx.drawImage(pg.src, 0, 0, pg.w, pg.h);
+    if (orig) return c;   // 元の写真（書き込みなし）
     pg.strokes.forEach(function (st) { drawStroke(ctx, st, pg.w); });
     pg.texts.forEach(function (t) { drawText(ctx, t, pg.w); });
     return c;
@@ -824,6 +917,7 @@
       }
       markDirty();
       busy(''); selectPage(last);
+      if (!$('folder').hidden) showEditor();
     } catch (e) { busy(''); toast('写真を追加できませんでした：' + e.message, true); }
   }
   $('btnAdd').addEventListener('click', function () { $('fileInput').click(); });
@@ -844,6 +938,7 @@
     const v = $('memoText').value;
     if (v !== S.memo) { S.memo = v; markDirty(); }
     $('memoModal').hidden = true;
+    if (!$('folder').hidden) renderFolder();
   });
   $('inTitle').addEventListener('input', function (e) { S.title = e.target.value; markDirty(); });
   $('inDate').addEventListener('input', function (e) { S.date = e.target.value; markDirty(); });
@@ -894,7 +989,7 @@
     for (let i = 0; i < lines.length; i += cap) out.push(lines.slice(i, i + cap));
     return out;
   }
-  async function buildPdf(onProgress) {
+  async function buildPdf(onProgress, orig) {
     const memoPages = memoPagesLines();
     const total = memoPages.length + S.pages.length;
     const out = []; let n = 0;
@@ -916,7 +1011,7 @@
       drawHeader(ctx, sz[0], n, total);
       const ax = MARGIN, ay = HEADER_H + 8, aw = sz[0] - MARGIN * 2, ah = sz[1] - ay - MARGIN;
       const sc = Math.min(aw / pg.w, ah / pg.h), dw = pg.w * sc, dh = pg.h * sc;
-      const comp = renderCompositeCanvas(pg);
+      const comp = renderCompositeCanvas(pg, orig);
       ctx.drawImage(comp, ax + (aw - dw) / 2, ay + (ah - dh) / 2, dw, dh);
       comp.width = comp.height = 0;
       out.push({ wPx: c.width, hPx: c.height, jpeg: await canvasJpeg(c) });
@@ -970,27 +1065,71 @@
     else el.textContent = '';
     $('btnUpload').textContent = S.status === 'sent' ? 'もう一度ドライブへ送信' : 'ドライブへ送信';
   }
-  async function openPdf() {
-    if (!S.pages.length && !S.memo.trim()) { toast('写真を追加してからPDFを作成してください', true); return; }
+  function getOut() {
+    try { const o = JSON.parse(localStorage.getItem('tj_out') || '{}'); return { fmt: o.fmt === 'slides' ? 'slides' : 'pdf', img: o.img === 'orig' ? 'orig' : 'annot' }; }
+    catch (e) { return { fmt: 'pdf', img: 'annot' }; }
+  }
+  function slidesName() { return pdfFileName().replace(/\.pdf$/, ''); }
+  function outLabel() { return S.lastPdf && S.lastPdf.fmt === 'slides' ? 'スライド' : 'PDF'; }
+  // スライド用の画像（長辺1600px・JPEG）。ドライブ側のGASがスライドに組み立てる
+  async function buildSlides(onProgress, orig) {
+    const imgs = []; let size = 0;
+    for (let i = 0; i < S.pages.length; i++) {
+      const pg = S.pages[i];
+      const comp = renderCompositeCanvas(pg, orig);
+      const sc = Math.min(1, 1600 / Math.max(pg.w, pg.h));
+      const c = document.createElement('canvas'); c.width = Math.round(pg.w * sc); c.height = Math.round(pg.h * sc);
+      c.getContext('2d').drawImage(comp, 0, 0, c.width, c.height); comp.width = comp.height = 0;
+      const b = await toBlob(c, 'image/jpeg', 0.85); c.width = c.height = 0;
+      imgs.push(b); size += b.size;
+      if (onProgress) onProgress(i + 1, S.pages.length);
+    }
+    if (size > 30 * 1024 * 1024) throw new Error('写真の合計が大きすぎます（' + fmtSize(size) + '）。フォルダを分けるか、写真を減らしてください');
+    if (imgs.length > 60) throw new Error('写真が多すぎます（60枚まで）');
+    return { fmt: 'slides', imgs: imgs, memo: S.memo.trim(), pages: imgs.length, size: size };
+  }
+  function openOutput() {
+    if (!S.pages.length && !S.memo.trim()) { toast('写真かメモを追加してから作成してください', true); return; }
     if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
+    const o = getOut();
+    document.querySelectorAll('input[name=ofmt]').forEach(function (r) { r.checked = r.value === o.fmt; });
+    document.querySelectorAll('input[name=oimg]').forEach(function (r) { r.checked = r.value === o.img; });
+    $('outModal').hidden = false;
+  }
+  async function makeOutput() {
+    const fmtEl = document.querySelector('input[name=ofmt]:checked'), imgEl = document.querySelector('input[name=oimg]:checked');
+    const fmt = fmtEl ? fmtEl.value : 'pdf', img = imgEl ? imgEl.value : 'annot', orig = img === 'orig';
+    try { localStorage.setItem('tj_out', JSON.stringify({ fmt: fmt, img: img })); } catch (e) { /* 無視 */ }
+    $('outModal').hidden = true;
     await flushSave();
-    if (!S.lastPdf) {
-      busy('PDFを作成中…');
+    const opt = fmt + ':' + img;
+    if (!S.lastPdf || S.lastPdf.opt !== opt) {
+      const nm = fmt === 'pdf' ? 'PDF' : 'スライド用の画像';
+      busy(nm + 'を作成中…');
       try {
-        const r = await buildPdf(function (n, t) { busy('PDFを作成中… ' + n + '/' + t); });
+        const prog = function (n, t) { busy(nm + 'を作成中… ' + n + '/' + t); };
+        const r = fmt === 'pdf' ? await buildPdf(prog, orig) : await buildSlides(prog, orig);
+        r.fmt = fmt; r.opt = opt; r.img = img;
         S.lastPdf = r;
-      } catch (e) { busy(''); toast('PDFを作成できませんでした：' + e.message, true); return; }
+      } catch (e) { busy(''); toast('作成できませんでした：' + e.message, true); return; }
       busy('');
     }
-    $('pdfInfo').textContent = pdfFileName() + '　' + S.lastPdf.pages + 'ページ・' + fmtSize(S.lastPdf.blob.size);
+    const r = S.lastPdf, photo = r.img === 'orig' ? '元の写真' : '書き込み入り';
+    $('pdfTitle').textContent = r.fmt === 'slides' ? 'スライドの準備ができました' : 'PDFができました';
+    $('pdfInfo').textContent = r.fmt === 'slides'
+      ? slidesName() + '　スライド' + (r.pages + (r.memo ? 1 : 0)) + '枚・' + photo + '・' + fmtSize(r.size)
+      : pdfFileName() + '　' + r.pages + 'ページ・' + photo + '・' + fmtSize(r.blob.size);
+    $('btnShare').hidden = r.fmt === 'slides';
     refreshPdfNote();
     $('pdfModal').hidden = false;
   }
-  $('btnPdf').addEventListener('click', openPdf);
+  $('btnPdf').addEventListener('click', openOutput);
+  $('btnOutCancel').addEventListener('click', function () { $('outModal').hidden = true; });
+  $('btnOutGo').addEventListener('click', makeOutput);
   $('btnPdfClose').addEventListener('click', function () { $('pdfModal').hidden = true; });
   // 共有は「ボタンを押した直後」でないとiPadが許可しないため、PDF作成とは別のボタンにしている
   $('btnShare').addEventListener('click', async function () {
-    if (!S.lastPdf) return;
+    if (!S.lastPdf || !S.lastPdf.blob) return;
     const file = new File([S.lastPdf.blob], pdfFileName(), { type: 'application/pdf' });
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1005,6 +1144,8 @@
   });
 
   // ---------- ドライブへ送信（圏外なら「送信待ち」→ 通信できたら自動送信） ----------
+  const MAX_VIDEO = 30 * 1024 * 1024;   // 1回の送信で安全に送れる動画の大きさ
+  function folderName(title, date) { return safeName(title) + ' ' + (date || todayStr()); }
   function getCfg() {
     let c = {};
     try { c = JSON.parse(localStorage.getItem('tj_cfg') || '{}'); } catch (e) { /* 無視 */ }
@@ -1026,34 +1167,61 @@
     if (!j.ok) { const er = new Error(j.error || '送信に失敗しました'); er.fatal = true; throw er; }
     return j;
   }
-  let flushing = false;
-  async function flushOutbox() {
-    if (flushing) return { sent: 0, pending: -1 };
-    flushing = true;
+  let flushP = Promise.resolve();
+  function flushOutbox() { flushP = flushP.then(doFlush, doFlush); return flushP; }
+  async function doFlush() {
     let sent = 0, pending = 0, lastErr = '';
-    try {
-      const items = await DB.all('outbox');
-      const cfg = getCfg();
-      for (const it of items) {
-        if (!navigator.onLine || !cfg.url || !cfg.token) { pending++; if (!cfg.url || !cfg.token) lastErr = '送信設定が未入力です'; continue; }
-        try {
-          const j = await callGas(cfg, { action: 'upload', fileName: it.fileName, pdfBase64: await blobToBase64(it.blob) });
-          await DB.del('outbox', it.id);
-          await markSent(it.reportId);
-          sent++;
-        } catch (e) {
-          pending++; lastErr = e.message;
-          it.error = e.message; await DB.put('outbox', it);
+    const items = await DB.all('outbox');
+    const cfg = getCfg();
+    for (const it of items) {
+      if (!navigator.onLine || !cfg.url || !cfg.token) { pending++; if (!cfg.url || !cfg.token) lastErr = '送信設定が未入力です'; continue; }
+      try {
+        let res;
+        if (it.kind === 'slides') {
+          res = await callGas(cfg, {
+            action: 'upload', kind: 'slides', folderName: it.folderName || '', fileName: it.fileName,
+            memo: it.memo || '', images: await Promise.all(it.images.map(blobToBase64))
+          });
+        } else {
+          res = await callGas(cfg, {
+            action: 'upload', kind: it.kind || 'pdf', folderName: it.folderName || '',
+            fileName: it.fileName, mime: it.blob.type || '', dataBase64: await blobToBase64(it.blob)
+          });
         }
+        await DB.del('outbox', it.id);
+        await saveDriveInfo(it.reportId, res.folderUrl, it.kind === 'slides' ? res.url : '');
+        if (it.kind === 'video') await markVideoSent(it.reportId, it.videoId); else await markSent(it.reportId);
+        sent++;
+      } catch (e) {
+        pending++; lastErr = e.message;
+        it.error = e.message; await DB.put('outbox', it);
       }
-    } finally { flushing = false; }
+    }
     if (sent) toast('ドライブへ送信しました（' + sent + '件）');
     if (!$('list').hidden) renderList();
+    if (!$('folder').hidden) renderFolder();
     return { sent: sent, pending: pending, error: lastErr };
+  }
+  // ドライブのフォルダ／スライドのURLを、そのフォルダ（報告書）に記録する
+  async function saveDriveInfo(reportId, folderUrl, slidesUrl) {
+    if (!folderUrl && !slidesUrl) return;
+    if (S.reportId === reportId) {
+      if (folderUrl) S.driveUrl = folderUrl;
+      if (slidesUrl) S.slidesUrl = slidesUrl;
+      S.needSave = true; await flushSave();
+      return;
+    }
+    const doc = await DB.get('reports', reportId);
+    if (doc) { if (folderUrl) doc.driveUrl = folderUrl; if (slidesUrl) doc.slidesUrl = slidesUrl; await DB.put('reports', doc); }
+  }
+  // Googleのドライブ／ドキュメントのURLだけを開く
+  function openGoogleUrl(u) {
+    if (!/^https:\/\/(drive|docs)\.google\.com\//.test(u || '')) { toast('開けるURLがありません', true); return; }
+    window.open(u, '_blank', 'noopener');
   }
   async function markSent(reportId) {
     const now = Date.now();
-    if (S.reportId === reportId && !$('editor').hidden) {
+    if (S.reportId === reportId) {
       S.status = 'sent'; S.sentAt = now; S.needSave = true;
       await flushSave(); refreshPdfNote();
       return;
@@ -1061,13 +1229,29 @@
     const doc = await DB.get('reports', reportId);
     if (doc) { doc.status = 'sent'; doc.sentAt = now; await DB.put('reports', doc); }
   }
+  async function markVideoSent(reportId, videoId) {
+    if (S.reportId === reportId) {
+      S.videos.forEach(function (v) { if (v.id === videoId) v.sent = true; });
+      S.needSave = true; await flushSave();
+      return;
+    }
+    const doc = await DB.get('reports', reportId);
+    if (doc) { (doc.videos || []).forEach(function (v) { if (v.id === videoId) v.sent = true; }); await DB.put('reports', doc); }
+  }
   $('btnUpload').addEventListener('click', async function () {
     const cfg = getCfg();
     if (!cfg.url || !cfg.token) { $('pdfModal').hidden = true; openSettings('先に送信先URLと合言葉を入力してください'); return; }
     if (!S.lastPdf) return;
     $('btnUpload').disabled = true;
     try {
-      await DB.put('outbox', { id: S.reportId, reportId: S.reportId, fileName: pdfFileName(), blob: S.lastPdf.blob, createdAt: Date.now(), error: null });
+      const lp = S.lastPdf;
+      await DB.put('outbox', lp.fmt === 'slides' ? {
+        id: S.reportId, kind: 'slides', reportId: S.reportId, folderName: folderName(S.title, S.date),
+        fileName: slidesName(), memo: lp.memo, images: lp.imgs, createdAt: Date.now(), error: null
+      } : {
+        id: S.reportId, kind: 'pdf', reportId: S.reportId, folderName: folderName(S.title, S.date),
+        fileName: pdfFileName(), blob: lp.blob, createdAt: Date.now(), error: null
+      });
       S.status = 'queued'; S.needSave = true; await flushSave();
       $('uploadNote').textContent = navigator.onLine ? '送信中…' : '';
       const r = await flushOutbox();
@@ -1106,52 +1290,183 @@
     catch (e) { $('cfgResult').textContent = '接続できませんでした：' + e.message; }
   });
 
-  // ---------- 一覧・開く・新規 ----------
+  // ---------- 報告書フォルダ（作成・一覧・中身） ----------
   function resetState() {
     S.reportId = uid(); S.title = ''; S.date = todayStr(); S.memo = ''; S.status = 'draft'; S.sentAt = 0;
-    S.pages = []; S.cur = -1; S.selText = null; S.needSave = false; S.lastPdf = null; S.drawing = null;
+    S.driveUrl = ''; S.slidesUrl = '';
+    S.pages = []; S.videos = []; S.cur = -1; S.selText = null; S.needSave = false; S.lastPdf = null; S.drawing = null;
     $('inTitle').value = ''; $('inDate').value = S.date; $('saveState').textContent = '';
     textLayer.innerHTML = '';
   }
-  function showEditor() {
-    $('list').hidden = true; $('editor').hidden = false;
-    setTool('pen'); selectPage(S.cur);
+  function hideAll() { $('list').hidden = true; $('folder').hidden = true; $('editor').hidden = true; }
+  function showEditor(i) {
+    hideAll(); $('editor').hidden = false;
+    $('eName').textContent = folderName(S.title, S.date);
+    setTool('pen'); selectPage(i === undefined ? S.cur : i);
     requestAnimationFrame(fit);
   }
+  function showFolder() {
+    hideAll(); $('folder').hidden = false; window.scrollTo(0, 0);
+    renderFolder();
+  }
+  async function renderFolder() {
+    updateStorage();
+    $('fName').textContent = folderName(S.title, S.date);
+    $('fState').textContent = S.status === 'sent' ? '出力：送信済み' : S.status === 'queued' ? '出力：送信待ち' : '出力：未送信';
+    const g = $('fPhotos'); g.innerHTML = '';
+    $('fDrive').hidden = !S.driveUrl;
+    $('fSlides').hidden = !S.slidesUrl;
+    $('fPhotosEmpty').hidden = S.pages.length > 0;
+    S.pages.forEach(function (pg, i) {
+      const b = document.createElement('button'); b.className = 'thumb'; b.setAttribute('aria-label', (i + 1) + '枚目を開く');
+      const c = document.createElement('canvas'), sc = 240 / Math.max(pg.w, pg.h);
+      c.width = Math.round(pg.w * sc); c.height = Math.round(pg.h * sc);
+      const comp = renderCompositeCanvas(pg);
+      c.getContext('2d').drawImage(comp, 0, 0, c.width, c.height); comp.width = comp.height = 0;
+      const sp = document.createElement('span'); sp.textContent = String(i + 1);
+      b.appendChild(c); b.appendChild(sp);
+      b.addEventListener('click', function () { showEditor(i); });
+      g.appendChild(b);
+    });
+    $('fMemoView').textContent = S.memo.trim() || 'メモはまだありません';
+    const ob = {};
+    try { (await DB.all('outbox')).forEach(function (o) { ob[o.id] = o; }); } catch (e) { /* 無視 */ }
+    const ul = $('fVideos'); ul.innerHTML = '';
+    $('fVideosEmpty').hidden = S.videos.length > 0;
+    S.videos.forEach(function (v) {
+      const li = document.createElement('li'); li.className = 'vid';
+      const info = document.createElement('div'); info.className = 'vinfo';
+      const nm = document.createElement('b'); nm.textContent = v.name;
+      const q = ob[S.reportId + ':v:' + v.id];
+      const bd = document.createElement('span');
+      bd.className = 'badge ' + (v.sent ? 'sent' : q ? 'queued' : '');
+      bd.textContent = v.sent ? '送信済み' : q ? '送信待ち' : '未送信';
+      nm.appendChild(bd);
+      const sub = document.createElement('div'); sub.className = 'sub';
+      sub.textContent = fmtSize(v.size) + (v.size > MAX_VIDEO ? '（大きいためドライブへ送れません。端末に保存されます）' : '');
+      info.appendChild(nm); info.appendChild(sub);
+      if (q && q.error) { const er = document.createElement('span'); er.className = 'errline'; er.textContent = q.error; info.appendChild(er); }
+      const bp = document.createElement('button'); bp.textContent = '再生';
+      bp.addEventListener('click', function () { playVideo(v); });
+      const bs = document.createElement('button'); bs.textContent = v.sent ? 'もう一度送信' : 'ドライブへ送信';
+      bs.disabled = v.size > MAX_VIDEO;
+      bs.addEventListener('click', function () { sendVideo(v); });
+      const bx = document.createElement('button'); bx.className = 'danger'; bx.textContent = '削除';
+      bx.addEventListener('click', function () { deleteVideo(v); });
+      li.appendChild(info); li.appendChild(bp); li.appendChild(bs); li.appendChild(bx);
+      ul.appendChild(li);
+    });
+  }
+  async function videoBlob(v) { return v.blob || DB.get('videos', S.reportId + ':' + v.id); }
+  async function playVideo(v) {
+    const b = await videoBlob(v);
+    if (!b) { toast('動画データが見つかりません', true); return; }
+    $('vidPlayer').src = URL.createObjectURL(b); $('vidModal').hidden = false;
+  }
+  $('btnVidClose').addEventListener('click', function () {
+    const p = $('vidPlayer'); p.pause(); URL.revokeObjectURL(p.src); p.removeAttribute('src'); p.load(); $('vidModal').hidden = true;
+  });
+  async function sendVideo(v) {
+    const cfg = getCfg();
+    if (!cfg.url || !cfg.token) { openSettings('先に送信先URLと合言葉を入力してください'); return; }
+    if (v.size > MAX_VIDEO) { toast('動画が大きいためドライブへ送れません（30MBまで）', true); return; }
+    const blob = await videoBlob(v);
+    if (!blob) { toast('動画データが見つかりません', true); return; }
+    await DB.put('outbox', {
+      id: S.reportId + ':v:' + v.id, kind: 'video', reportId: S.reportId, videoId: v.id,
+      folderName: folderName(S.title, S.date), fileName: v.name, blob: blob, createdAt: Date.now(), error: null
+    });
+    renderFolder();
+    toast(navigator.onLine ? '動画を送信中…' : '圏外のため「送信待ち」にしました。通信できる場所で自動送信します');
+    const r = await flushOutbox();
+    if (r.pending > 0 && navigator.onLine) toast('動画を送信できませんでした：' + (r.error || '不明なエラー'), true);
+    renderFolder();
+  }
+  async function deleteVideo(v) {
+    if (!confirm('動画「' + v.name + '」を、このiPadから削除します。\nドライブに送信済みのものは消えません。よろしいですか？')) return;
+    S.videos = S.videos.filter(function (x) { return x !== v; });
+    try { await DB.del('videos', S.reportId + ':' + v.id); await DB.del('outbox', S.reportId + ':v:' + v.id); } catch (e) { /* 無視 */ }
+    markDirty(true); await flushSave(); renderFolder();
+  }
+  async function addVideos(files) {
+    const list = Array.prototype.slice.call(files || []);
+    if (!list.length) return;
+    list.forEach(function (f) {
+      S.videos.push({ id: uid(), name: f.name || ('video' + Date.now() + '.mp4'), size: f.size, type: f.type || 'video/mp4', sent: false, blob: f });
+    });
+    markDirty(true); await flushSave(); renderFolder();
+    const big = list.filter(function (f) { return f.size > MAX_VIDEO; }).length;
+    if (big) toast('動画を追加しました。30MBを超えるものは端末に保存されますが、ドライブへは送れません', true);
+    else toast('動画を追加しました');
+  }
+  $('fAddPhoto').addEventListener('click', function () { $('fileInput').click(); });
+  $('fAddVideo').addEventListener('click', function () { $('videoInput').click(); });
+  $('videoInput').addEventListener('change', function (e) { const f = e.target.files; addVideos(f); e.target.value = ''; });
+  $('fMemo').addEventListener('click', function () { $('btnMemo').click(); });
+  $('fPdf').addEventListener('click', openOutput);
+  $('fDrive').addEventListener('click', function () { openGoogleUrl(S.driveUrl); });
+  $('fSlides').addEventListener('click', function () { openGoogleUrl(S.slidesUrl); });
+  $('btnFBack').addEventListener('click', function () { showList(); });
+  $('btnBack').addEventListener('click', async function () {
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
+    await flushSave(); showFolder();
+  });
+
+  // 端末の保存容量の表示（ブラウザが答える「このアプリが使える残り」の目安）
+  async function updateStorage() {
+    const els = [$('storageInfo'), $('fStorage')];
+    try {
+      if (!(navigator.storage && navigator.storage.estimate)) throw new Error('none');
+      const e = await navigator.storage.estimate();
+      if (!e.quota) throw new Error('none');
+      const used = e.usage || 0, left = Math.max(0, e.quota - used);
+      const low = left < 1024 * 1024 * 1024 || used / e.quota > 0.8;
+      els.forEach(function (el) {
+        el.textContent = '保存容量：あと約 ' + fmtSize(left) + ' 使えます（このアプリの使用量 ' + fmtSize(used) + '）' + (low ? '　空きが少なくなっています。送信済みのフォルダを削除してください' : '');
+        el.classList.toggle('low', low);
+      });
+    } catch (err) { els.forEach(function (el) { el.textContent = ''; }); }
+  }
   async function renderList() {
-    $('reportList').innerHTML = '';
+    updateStorage();
+    const frag = document.createDocumentFragment();   // 同時に2回呼ばれても重複しないよう、最後に一括で差し替える
     try {
       const docs = await DB.all('reports');
       const outbox = {}; (await DB.all('outbox')).forEach(function (o) { outbox[o.id] = o; });
       docs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || (b.updatedAt - a.updatedAt); });
-      $('listMsg').textContent = docs.length ? '' : 'まだレポートがありません。「新規作成」から始めましょう。';
+      $('listMsg').textContent = docs.length ? '' : 'まだ報告書フォルダがありません。「報告書フォルダ作成」から始めましょう。';
       docs.forEach(function (it) {
         const li = document.createElement('li'); li.className = 'rep';
         const open = document.createElement('button'); open.className = 'open';
-        const b = document.createElement('b'); b.textContent = it.title || '無題';
+        const b = document.createElement('b'); b.textContent = folderName(it.title, it.date);
         const bd = document.createElement('span'); bd.className = 'badge ' + (it.status || 'draft');
-        bd.textContent = it.status === 'sent' ? '送信済み' : it.status === 'queued' ? '送信待ち' : '下書き';
+        bd.textContent = it.status === 'sent' ? '送信済み' : it.status === 'queued' ? '送信待ち' : '未送信';
         b.appendChild(bd);
-        const sp = document.createElement('span'); sp.textContent = (it.date || '') + '　' + it.pages.length + 'ページ';
+        const sp = document.createElement('span');
+        const nv = (it.videos || []).length;
+        sp.textContent = '写真 ' + it.pages.length + '枚' + (nv ? '・動画 ' + nv + '本' : '');
         open.appendChild(b); open.appendChild(sp);
         const ob = outbox[it.id];
         if (it.status === 'queued' && ob && ob.error) { const er = document.createElement('span'); er.className = 'errline'; er.textContent = ob.error; open.appendChild(er); }
         open.addEventListener('click', function () { openReport(it.id); });
         const del = document.createElement('button'); del.className = 'danger'; del.textContent = '削除';
         del.addEventListener('click', async function () {
-          if (!confirm('「' + (it.title || '無題') + '」を、このiPadから削除します。\nドライブに送信済みのPDFは消えません。よろしいですか？')) return;
+          if (!confirm('フォルダ「' + folderName(it.title, it.date) + '」を、このiPadから削除します。\nドライブに送信済みのファイルは消えません。よろしいですか？')) return;
           try {
             await DB.del('reports', it.id); await DB.del('outbox', it.id); await DB.prunePhotos(it.id, {});
+            for (const v of (it.videos || [])) { await DB.del('videos', it.id + ':' + v.id); await DB.del('outbox', it.id + ':v:' + v.id); }
             toast('削除しました'); renderList();
           } catch (e) { toast('削除できませんでした：' + e.message, true); }
         });
-        li.appendChild(open); li.appendChild(del); $('reportList').appendChild(li);
+        li.appendChild(open); li.appendChild(del); frag.appendChild(li);
       });
+      $('reportList').replaceChildren(frag);
     } catch (e) { $('listMsg').textContent = '一覧を読み込めませんでした：' + e.message; }
   }
   async function showList() {
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur();
     await flushSave();
-    $('editor').hidden = true; $('list').hidden = false;
+    hideAll(); $('list').hidden = false;
     const standalone = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
     let closed = false; try { closed = localStorage.getItem('tj_hint_closed') === '1'; } catch (e) { /* 無視 */ }
     $('installHint').hidden = !!standalone || closed;
@@ -1169,6 +1484,8 @@
       resetState();
       S.reportId = id; S.title = doc.title || ''; S.date = doc.date || todayStr(); S.memo = doc.memo || '';
       S.status = doc.status || 'draft'; S.sentAt = doc.sentAt || 0;
+      S.driveUrl = doc.driveUrl || ''; S.slidesUrl = doc.slidesUrl || '';
+      S.videos = (doc.videos || []).map(function (v) { return Object.assign({}, v, { blob: null }); });
       $('inTitle').value = S.title; $('inDate').value = S.date;
       for (const p of doc.pages) {
         const blob = await DB.get('photos', id + ':' + p.id);
@@ -1181,12 +1498,47 @@
         S.pages.push(pg);
       }
       S.cur = S.pages.length ? 0 : -1;
-      busy(''); showEditor();
-      $('saveState').textContent = '端末に保存済み';
+      busy(''); showFolder();
     } catch (e) { busy(''); toast('開けませんでした：' + e.message, true); }
   }
-  $('btnNew').addEventListener('click', function () { resetState(); showEditor(); });
-  $('btnBack').addEventListener('click', function () { showList(); });
+
+  // 新規フォルダ：「何の報告書か」＋「日付（初期値は今日）」→「フォルダ作成」
+  function openNew() {
+    $('nTitle').value = ''; $('nDate').value = todayStr(); $('nMsg').textContent = '';
+    $('newModal').hidden = false;
+    setTimeout(function () { $('nTitle').focus(); }, 50);
+  }
+  async function ensureDriveFolder(name, rid) {
+    const cfg = getCfg();
+    if (!cfg.url || !cfg.token || !navigator.onLine) return;   // 圏外・未設定のときは、最初の送信時に自動で作られます
+    try {
+      const j = await callGas(cfg, { action: 'mkfolder', folderName: name });
+      await saveDriveInfo(rid, j.folderUrl, '');
+      toast('ドライブにもフォルダを作成しました');
+    } catch (e) { /* 送信時に作成されます */ }
+  }
+  async function createFolder() {
+    const btn = $('btnNewCreate');
+    const title = $('nTitle').value.trim(), date = $('nDate').value || todayStr();
+    if (!title) { $('nMsg').textContent = '何の報告書か入力してください'; return; }
+    const name = folderName(title, date);
+    btn.disabled = true;
+    try {
+      const docs = await DB.all('reports');
+      if (docs.some(function (d) { return folderName(d.title, d.date) === name; })) { $('nMsg').textContent = '同じ名前のフォルダがすでにあります'; return; }
+      resetState(); S.title = title; S.date = date; S.needSave = true; await flushSave();
+      const rid = S.reportId;
+      $('newModal').hidden = true;
+      await showList();
+      toast('フォルダを作成しました：' + name);
+      ensureDriveFolder(name, rid);
+    } catch (e) { $('nMsg').textContent = '作成できませんでした：' + e.message; }
+    finally { btn.disabled = false; }
+  }
+  $('btnNew').addEventListener('click', openNew);
+  $('btnNewCancel').addEventListener('click', function () { $('newModal').hidden = true; });
+  $('btnNewCreate').addEventListener('click', createFolder);
+  $('nTitle').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); createFolder(); } });
 
   // ---------- 起動 ----------
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

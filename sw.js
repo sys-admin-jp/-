@@ -1,10 +1,15 @@
 // 展示会レポート Service Worker
 // 画面を更新したときは CACHE の番号を上げてください（古いキャッシュが破棄されます）
-const CACHE = 'tenjikai-v1';
+const CACHE = 'tenjikai-v6';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));
+  // 1つでも取得できないファイルがあっても、残りは保存する（addAll は1つ失敗すると全部失敗するため）
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(function (c) { return Promise.all(ASSETS.map(function (u) { return c.add(u).catch(function () { /* 無視 */ }); })); })
+      .then(function () { return self.skipWaiting(); })
+  );
 });
 
 self.addEventListener('activate', function (e) {

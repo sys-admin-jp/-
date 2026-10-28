@@ -216,6 +216,7 @@
   <div class="tools">
     <div class="group" id="pageStrip"></div>
     <button id="btnAdd">写真を追加</button>
+    <button id="btnPageMemo">写真のメモ</button>
     <button id="btnDelPage" class="danger">このページを削除</button>
     <span class="sep"></span>
     <div class="group" id="toolBtns">
@@ -247,7 +248,7 @@
 
 <div class="overlay" id="memoModal" hidden>
   <div class="modal" role="dialog" aria-label="全体メモ">
-    <b>全体メモ（展示会全体の所感など）</b>
+    <b id="memoTitle">全体メモ</b>
     <textarea id="memoText"></textarea>
     <div class="row"><button class="primary" id="btnMemoClose">閉じる</button></div>
   </div>
@@ -264,7 +265,7 @@
       <label class="chk"><input type="radio" name="oimg" value="annot">書き込み（手書き・テキスト）を入れた写真</label>
       <label class="chk"><input type="radio" name="oimg" value="orig">元の写真（書き込みなし）</label>
     </fieldset>
-    <div class="sub">全体メモは、PDFでは最初のページ、スライドでは最初のスライドに入ります。</div>
+    <div class="sub">最初のページ（スライド）が表紙で、タイトル・日付・全体メモが入ります。写真ごとのメモは、その写真と同じページに入ります。</div>
     <div class="row"><button id="btnOutCancel">キャンセル</button><button class="primary" id="btnOutGo">作成</button></div>
   </div>
 </div>
@@ -473,7 +474,7 @@
       driveUrl: S.driveUrl || '', slidesUrl: S.slidesUrl || '',
       pages: S.pages.map(function (pg) {
         return {
-          id: pg.id, w: pg.w, h: pg.h, strokes: pg.strokes,
+          id: pg.id, w: pg.w, h: pg.h, strokes: pg.strokes, memo: pg.memo || '',
           texts: pg.texts.map(function (t) { return { id: t.id, x: t.x, y: t.y, w: t.w, fs: t.fs, c: t.c, bg: t.bg, text: t.text }; })
         };
       })
@@ -872,6 +873,7 @@
       box.appendChild(b);
     });
     $('btnDelPage').hidden = !S.pages.length;
+    $('btnPageMemo').hidden = !S.pages.length;
   }
   function fit() {
     const pg = cur();
@@ -902,7 +904,7 @@
       const w = Math.round(im.naturalWidth * sc), h = Math.round(im.naturalHeight * sc);
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       c.getContext('2d').drawImage(im, 0, 0, w, h);
-      const pg = { id: uid(), w: w, h: h, src: c, blob: await toBlob(c, 'image/jpeg', 0.88), strokes: [], texts: [] };
+      const pg = { id: uid(), w: w, h: h, src: c, blob: await toBlob(c, 'image/jpeg', 0.88), strokes: [], texts: [], memo: '' };
       pg.hist = [snap(pg)]; pg.hi = 0;
       return pg;
     } finally { URL.revokeObjectURL(url); }
@@ -933,10 +935,24 @@
   });
 
   // ---------- メモ・タイトル ----------
-  $('btnMemo').addEventListener('click', function () { $('memoText').value = S.memo; $('memoModal').hidden = false; $('memoText').focus(); });
+  function openMemo(target) {
+    const pg = cur();
+    if (target === 'page' && !pg) return;
+    S.memoTarget = target;
+    $('memoTitle').textContent = target === 'page'
+      ? (S.cur + 1) + '枚目の写真のメモ（この写真と同じページに入ります）'
+      : '全体メモ（表紙に入ります。展示会全体の所感など）';
+    $('memoText').value = target === 'page' ? (pg.memo || '') : S.memo;
+    $('memoModal').hidden = false; $('memoText').focus();
+  }
+  $('btnMemo').addEventListener('click', function () { openMemo('all'); });
+  $('btnPageMemo').addEventListener('click', function () { openMemo('page'); });
   $('btnMemoClose').addEventListener('click', function () {
     const v = $('memoText').value;
-    if (v !== S.memo) { S.memo = v; markDirty(); }
+    if (S.memoTarget === 'page') {
+      const pg = cur();
+      if (pg && v !== (pg.memo || '')) { pg.memo = v; markDirty(); }
+    } else if (v !== S.memo) { S.memo = v; markDirty(); }
     $('memoModal').hidden = true;
     if (!$('folder').hidden) renderFolder();
   });
@@ -980,40 +996,76 @@
     const b = await toBlob(c, 'image/jpeg', 0.85);
     return new Uint8Array(await b.arrayBuffer());
   }
-  function memoPagesLines() {
-    const memo = S.memo.trim(); if (!memo) return [];
-    const ctx = newPageCanvas(10, 10).getContext('2d'); ctx.font = '34px ' + FONT;
-    const lines = wrapLines(ctx, memo, A4P[0] - MARGIN * 2 - 40);
-    const lh = 34 * 1.7, top = HEADER_H + 110, cap = Math.max(1, Math.floor((A4P[1] - top - 80) / lh));
-    const out = [];
-    for (let i = 0; i < lines.length; i += cap) out.push(lines.slice(i, i + cap));
-    return out;
+  const NOTE_FONT = 30, NOTE_LH = NOTE_FONT * 1.55, COVER_MEMO_TOP = 470;
+  function noteLines(text, maxW) {
+    const t = (text || '').trim(); if (!t) return [];
+    const ctx = newPageCanvas(10, 10).getContext('2d'); ctx.font = NOTE_FONT + 'px ' + FONT;
+    return wrapLines(ctx, t, maxW);
   }
+  function drawNoteBox(ctx, x, y, w, lines) {
+    const h = lines.length * NOTE_LH + 40;
+    ctx.save();
+    ctx.fillStyle = '#f4f6f8'; ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2;
+    ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h);
+    ctx.fillStyle = '#1b2430'; ctx.font = NOTE_FONT + 'px ' + FONT; ctx.textBaseline = 'alphabetic';
+    lines.forEach(function (ln, i) { ctx.fillText(ln, x + 20, y + 20 + NOTE_FONT + i * NOTE_LH); });
+    ctx.restore();
+    return h;
+  }
+  function drawPageNum(ctx, W, n, total) {
+    ctx.save(); ctx.fillStyle = '#5b6573'; ctx.font = '28px ' + FONT; ctx.textBaseline = 'alphabetic';
+    const t = n + ' / ' + total; ctx.fillText(t, W - MARGIN - ctx.measureText(t).width, 62); ctx.restore();
+  }
+  // 構成：1ページ目＝表紙（タイトル・日付・全体メモ）／以降＝写真ごとに「写真＋その写真のメモ」で1ページ
   async function buildPdf(onProgress, orig) {
-    const memoPages = memoPagesLines();
-    const total = memoPages.length + S.pages.length;
-    const out = []; let n = 0;
-    for (let mi = 0; mi < memoPages.length; mi++) {
-      n++;
-      const c = newPageCanvas(A4P[0], A4P[1]), ctx = c.getContext('2d');
-      drawHeader(ctx, A4P[0], n, total);
-      ctx.fillStyle = '#1b2430'; ctx.font = 'bold 40px ' + FONT; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(mi === 0 ? '全体メモ' : '全体メモ（続き）', MARGIN + 20, HEADER_H + 70);
-      ctx.font = '34px ' + FONT; ctx.fillStyle = '#1b2430';
-      memoPages[mi].forEach(function (ln, i) { ctx.fillText(ln, MARGIN + 20, HEADER_H + 130 + 34 + i * 34 * 1.7); });
-      out.push({ wPx: c.width, hPx: c.height, jpeg: await canvasJpeg(c) });
-      c.width = c.height = 0;
-    }
-    for (const pg of S.pages) {
-      n++;
-      const land = pg.w >= pg.h, sz = land ? A4L : A4P;
+    const W0 = A4P[0], H0 = A4P[1], textW = W0 - MARGIN * 2 - 40;
+    const capFirst = Math.max(1, Math.floor((H0 - COVER_MEMO_TOP - 100) / NOTE_LH));
+    const capNext = Math.max(1, Math.floor((H0 - HEADER_H - 160) / NOTE_LH));
+    const memoAll = noteLines(S.memo, textW);
+    const plan = [{ t: 'cover', lines: memoAll.slice(0, capFirst) }];
+    for (let i = capFirst; i < memoAll.length; i += capNext) plan.push({ t: 'cont', head: '全体メモ（続き）', lines: memoAll.slice(i, i + capNext) });
+    S.pages.forEach(function (pg, idx) {
+      const sz = pg.w >= pg.h ? A4L : A4P;
+      const lines = noteLines(pg.memo, sz[0] - MARGIN * 2 - 40);
+      const cap = Math.max(1, Math.floor((sz[1] * 0.34 - 40) / NOTE_LH));
+      plan.push({ t: 'photo', pg: pg, sz: sz, lines: lines.slice(0, cap) });
+      for (let i = cap; i < lines.length; i += capNext) plan.push({ t: 'cont', head: (idx + 1) + '枚目のメモ（続き）', lines: lines.slice(i, i + capNext) });
+    });
+    const total = plan.length, out = [];
+    for (let n = 1; n <= total; n++) {
+      const it = plan[n - 1];
+      const sz = it.t === 'photo' ? it.sz : A4P;
       const c = newPageCanvas(sz[0], sz[1]), ctx = c.getContext('2d');
-      drawHeader(ctx, sz[0], n, total);
-      const ax = MARGIN, ay = HEADER_H + 8, aw = sz[0] - MARGIN * 2, ah = sz[1] - ay - MARGIN;
-      const sc = Math.min(aw / pg.w, ah / pg.h), dw = pg.w * sc, dh = pg.h * sc;
-      const comp = renderCompositeCanvas(pg, orig);
-      ctx.drawImage(comp, ax + (aw - dw) / 2, ay + (ah - dh) / 2, dw, dh);
-      comp.width = comp.height = 0;
+      if (it.t === 'cover') {
+        ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#1b2430'; ctx.font = 'bold 64px ' + FONT;
+        const tl = wrapLines(ctx, S.title || '無題', W0 - MARGIN * 2).slice(0, 2);
+        tl.forEach(function (ln, i) { ctx.fillText(i === 1 && wrapLines(ctx, S.title || '無題', W0 - MARGIN * 2).length > 2 ? fitText(ctx, ln + '…', W0 - MARGIN * 2) : ln, MARGIN, 150 + i * 84); });
+        ctx.fillStyle = '#5b6573'; ctx.font = '38px ' + FONT; ctx.fillText(S.date || '', MARGIN, 150 + 2 * 84 + 20);
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(MARGIN, 380); ctx.lineTo(W0 - MARGIN, 380); ctx.stroke();
+        drawPageNum(ctx, W0, n, total);
+        if (it.lines.length) {
+          ctx.fillStyle = '#1b2430'; ctx.font = 'bold 36px ' + FONT; ctx.fillText('全体メモ', MARGIN, 436);
+          drawNoteBox(ctx, MARGIN, COVER_MEMO_TOP - 10, W0 - MARGIN * 2, it.lines);
+        }
+      } else if (it.t === 'cont') {
+        drawHeader(ctx, W0, n, total);
+        ctx.fillStyle = '#1b2430'; ctx.font = 'bold 36px ' + FONT; ctx.fillText(it.head, MARGIN, HEADER_H + 64);
+        drawNoteBox(ctx, MARGIN, HEADER_H + 90, W0 - MARGIN * 2, it.lines);
+      } else {
+        const pg = it.pg;
+        drawHeader(ctx, sz[0], n, total);
+        const ax = MARGIN, ay = HEADER_H + 8, aw = sz[0] - MARGIN * 2;
+        let ah = sz[1] - ay - MARGIN;
+        if (it.lines.length) {
+          const bh = it.lines.length * NOTE_LH + 40;
+          drawNoteBox(ctx, MARGIN, sz[1] - MARGIN - bh, aw, it.lines);
+          ah = sz[1] - MARGIN - bh - 16 - ay;
+        }
+        const sc = Math.min(aw / pg.w, ah / pg.h), dw = pg.w * sc, dh = pg.h * sc;
+        const comp = renderCompositeCanvas(pg, orig);
+        ctx.drawImage(comp, ax + (aw - dw) / 2, ay + (ah - dh) / 2, dw, dh);
+        comp.width = comp.height = 0;
+      }
       out.push({ wPx: c.width, hPx: c.height, jpeg: await canvasJpeg(c) });
       c.width = c.height = 0;
       if (onProgress) onProgress(n, total);
@@ -1086,7 +1138,7 @@
     }
     if (size > 30 * 1024 * 1024) throw new Error('写真の合計が大きすぎます（' + fmtSize(size) + '）。フォルダを分けるか、写真を減らしてください');
     if (imgs.length > 60) throw new Error('写真が多すぎます（60枚まで）');
-    return { fmt: 'slides', imgs: imgs, memo: S.memo.trim(), pages: imgs.length, size: size };
+    return { fmt: 'slides', imgs: imgs, memo: S.memo.trim(), memos: S.pages.map(function (pg) { return (pg.memo || '').trim(); }), title: S.title || '無題', date: S.date || '', pages: imgs.length, size: size };
   }
   function openOutput() {
     if (!S.pages.length && !S.memo.trim()) { toast('写真かメモを追加してから作成してください', true); return; }
@@ -1117,7 +1169,7 @@
     const r = S.lastPdf, photo = r.img === 'orig' ? '元の写真' : '書き込み入り';
     $('pdfTitle').textContent = r.fmt === 'slides' ? 'スライドの準備ができました' : 'PDFができました';
     $('pdfInfo').textContent = r.fmt === 'slides'
-      ? slidesName() + '　スライド' + (r.pages + (r.memo ? 1 : 0)) + '枚・' + photo + '・' + fmtSize(r.size)
+      ? slidesName() + '　スライド' + (r.pages + 1) + '枚・' + photo + '・' + fmtSize(r.size)
       : pdfFileName() + '　' + r.pages + 'ページ・' + photo + '・' + fmtSize(r.blob.size);
     $('btnShare').hidden = r.fmt === 'slides';
     refreshPdfNote();
@@ -1180,7 +1232,8 @@
         if (it.kind === 'slides') {
           res = await callGas(cfg, {
             action: 'upload', kind: 'slides', folderName: it.folderName || '', fileName: it.fileName,
-            memo: it.memo || '', images: await Promise.all(it.images.map(blobToBase64))
+            memo: it.memo || '', memos: it.memos || [], title: it.title || '', date: it.date || '',
+            images: await Promise.all(it.images.map(blobToBase64))
           });
         } else {
           res = await callGas(cfg, {
@@ -1247,7 +1300,7 @@
       const lp = S.lastPdf;
       await DB.put('outbox', lp.fmt === 'slides' ? {
         id: S.reportId, kind: 'slides', reportId: S.reportId, folderName: folderName(S.title, S.date),
-        fileName: slidesName(), memo: lp.memo, images: lp.imgs, createdAt: Date.now(), error: null
+        fileName: slidesName(), memo: lp.memo, memos: lp.memos, title: lp.title, date: lp.date, images: lp.imgs, createdAt: Date.now(), error: null
       } : {
         id: S.reportId, kind: 'pdf', reportId: S.reportId, folderName: folderName(S.title, S.date),
         fileName: pdfFileName(), blob: lp.blob, createdAt: Date.now(), error: null
@@ -1323,7 +1376,7 @@
       c.width = Math.round(pg.w * sc); c.height = Math.round(pg.h * sc);
       const comp = renderCompositeCanvas(pg);
       c.getContext('2d').drawImage(comp, 0, 0, c.width, c.height); comp.width = comp.height = 0;
-      const sp = document.createElement('span'); sp.textContent = String(i + 1);
+      const sp = document.createElement('span'); sp.textContent = (i + 1) + (pg.memo && pg.memo.trim() ? '　メモあり' : '');
       b.appendChild(c); b.appendChild(sp);
       b.addEventListener('click', function () { showEditor(i); });
       g.appendChild(b);
@@ -1492,7 +1545,7 @@
         if (!blob) throw new Error('写真データが見つかりません');
         const pg = {
           id: p.id, w: p.w, h: p.h, src: await blobToImage(blob), blob: null,
-          strokes: p.strokes || [], texts: (p.texts || []).map(function (t) { return Object.assign({}, t); })
+          strokes: p.strokes || [], texts: (p.texts || []).map(function (t) { return Object.assign({}, t); }), memo: p.memo || ''
         };
         pg.hist = [snap(pg)]; pg.hi = 0;
         S.pages.push(pg);

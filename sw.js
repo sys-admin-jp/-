@@ -1,6 +1,6 @@
 // 展示会レポート Service Worker
 // 画面を更新したときは CACHE の番号を上げてください（古いキャッシュが破棄されます）
-const CACHE = 'tenjikai-v6';
+const CACHE = 'tenjikai-v7';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
